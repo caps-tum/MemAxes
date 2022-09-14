@@ -39,6 +39,7 @@
 #include "ui_form.h"
 #include "mainwindow.h"
 
+#include <unistd.h>
 #include <iostream>
 using namespace std;
 
@@ -75,7 +76,8 @@ MainWindow::MainWindow(QWidget *parent) :
 
     /*
      * MainWindow
-     */
+    */
+    qDebug( "main C Style Debug Message" );
 
     // File buttons
     connect(ui->actionImport_Data, SIGNAL(triggered()),this,SLOT(loadData()));
@@ -218,14 +220,12 @@ void errdiag(QString str)
 int MainWindow::loadData()
 {
     int err = 0;
-
     err = selectDataDirectory();
     if(err != 0)
         return err;
 
     QString sourceDir(dataDir+QString("/src/"));
     codeViz->setSourceDir(sourceDir);
-
     QString topoDir(dataDir+QString("/hardware.xml"));
     err = dataSet->loadHardwareTopology(topoDir);
     if(err != 0)
@@ -233,23 +233,20 @@ int MainWindow::loadData()
         errdiag("Error loading hardware: "+topoDir);
         return err;
     }
-
-    QString dataSetDir(dataDir+QString("/data/samples.out"));
+    //QString dataSetDir(dataDir+QString("/data/samples.out"));
+    QString dataSetDir(dataDir+QString("/data/samples.csv"));
     err = dataSet->loadData(dataSetDir);
     if(err != 0)
     {
         errdiag("Error loading dataset: "+dataSetDir);
         return err;
     }
-
     for(int i=0; i<vizWidgets.size(); i++)
     {
         vizWidgets[i]->processData();
         vizWidgets[i]->update();
     }
-
     visibilityChangedSlot();
-
     return 0;
 }
 

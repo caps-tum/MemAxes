@@ -40,6 +40,7 @@
 #define MEMTOPOVIZ_H
 
 #include "vizwidget.h"
+#include "Topology.hpp"
 
 #include <QMouseEvent>
 #include <QPair>
@@ -61,11 +62,11 @@ enum DataMode
 struct NodeBox
 {
     NodeBox() {memset(this,0,sizeof(*this));}
-    NodeBox(hwNode* n, 
+    NodeBox(Component* c,
             QRectF b)
-            : node(n),box(b) {}
+            : component(c),box(b) {}
 
-    hwNode* node;
+    Component* component;
     QRectF box;
     qreal val;
 };
@@ -73,13 +74,13 @@ struct NodeBox
 struct LinkBox
 {
     LinkBox() {memset(this,0,sizeof(*this));}
-    LinkBox(hwNode* p, 
-            hwNode* c, 
-            QRectF b) 
+    LinkBox(Component* p,
+            Component* c,
+            QRectF b)
             : parent(p),child(c),box(b) {}
 
-    hwNode* parent;
-    hwNode* child;
+    Component* parent;
+    Component* child;
     QRectF box;
     qreal val;
 };
@@ -87,7 +88,7 @@ struct LinkBox
 struct ColoredRect
 {
     ColoredRect() {memset(this,0,sizeof(*this));}
-    ColoredRect(QColor c, 
+    ColoredRect(QColor c,
             QRectF b)
             : color(c),box(b) {}
 
@@ -124,13 +125,13 @@ public slots:
 private:
     void calcMinMaxes();
     void constructNodeBoxes(QRectF rect,
-                            hwTopo *topo,
+                            Node *node,
                             QVector<RealRange> &valRanges,
                             QVector<RealRange> &transRanges, DataMode m,
                             QVector<NodeBox> &nbout,
                             QVector<LinkBox> &lbout);
-hwNode* nodeAtPosition(QPoint p);
-    void selectSamplesWithinNode(hwNode *lvl);
+    Component* nodeAtPosition(QPoint p);
+    void selectSamplesWithinNode(Component *lvl);
 
 private:
 

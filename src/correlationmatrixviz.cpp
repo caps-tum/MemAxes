@@ -231,13 +231,15 @@ void CorrelationMatrixViz::drawQtPainter(QPainter *painter)
     painter->setPen(QColor(0,0,0));
     for(int i=0; i<datasets->at(i)->numDimensions; i++)
     {
-        painter->drawText(o+QPointF(i*deltax,-2),datasets->at(i)->meta[i]);
+        painter->drawText(o+QPointF(i*deltax,-2),SampleAxes::SampleAxesNames[i]);
+        // painter->drawText(o+QPointF(i*deltax,-2),datasets->at(i)->meta[i]);
     }
 
     QPointF vp = matrixBBox.topRight();
     for(int i=0; i<datasets->at(i)->numDimensions; i++)
     {
-        painter->drawText(vp+QPointF(0,10),datasets->at(i)->meta[i]);
+        painter->drawText(vp+QPointF(0,10),SampleAxes::SampleAxesNames[i]);
+        // painter->drawText(vp+QPointF(0,10),datasets->at(i)->meta[i]);
         vp += QPointF(0,deltay);
     }
 }

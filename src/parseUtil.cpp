@@ -57,6 +57,8 @@ int dseDepth(int enc)
         case(0x0): return -1; // at least L3
         case(0x1): return 1; // L1
         case(0x2): return 1; // cache hit pending (don't draw)
+        //0x2   Fill Buffer Hit     Pending core cache hit. The data is not yet in the data cache, but is located in a line fill buffer and will soon be committed to cache. The data request was satisfied from the line fill buffer.
+        //02H                       Pending core cache HIT. Outstanding core cache miss to same cache-line address was already underway.
         case(0x3): return 2; // L2
         case(0x4): return 3; // L3
         case(0x5): return 3; // from another core L2/L1 (clean)

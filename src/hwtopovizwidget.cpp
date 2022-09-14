@@ -70,7 +70,7 @@ void HWTopoVizWidget::frameUpdate()
     if(needsConstructNodeBoxes)
     {
         constructNodeBoxes(drawBox,
-                           dataSet->getTopo(),
+                           dataSet->node,
                            depthValRanges,
                            depthTransRanges,
                            dataMode,
@@ -88,13 +88,19 @@ void HWTopoVizWidget::processData()
 {
     processed = false;
 
-    if(dataSet->getTopo() == NULL)
+    if(dataSet->node == NULL)
         return;
 
-    depthRange = IntRange(0,dataSet->getTopo()->hardwareResourceMatrix.size());
+    //TODO at the moment for one CPU
+    Chip* cpu = (Chip*)dataSet->node->GetChild(1);
+    int maxTopoDepth = cpu->GetTopoTreeDepth();
+
+    depthRange = IntRange(0,maxTopoDepth);
     for(int i=depthRange.first; i<(int)depthRange.second; i++)
     {
-        IntRange wr(0,dataSet->getTopo()->hardwareResourceMatrix[i].size());
+        vector<Component*> componentsAtDepth;
+        cpu->GetComponentsNLevelsDeeper(&componentsAtDepth, i);
+        IntRange wr(0,componentsAtDepth.size());
         widthRange.push_back(wr);
     }
 
@@ -125,9 +131,9 @@ void HWTopoVizWidget::drawTopo(QPainter *painter, QRectF rect, ColorMap &cm, QVe
     painter->setPen(QPen(Qt::black));
     for(int b=0; b<nb.size(); b++)
     {
-        hwNode *node = nb.at(b).node;
+        Component *c = nb.at(b).component;
         QRectF box = nb.at(b).box;
-        QString text = QString::number(node->id);
+        QString text = QString::number(c->GetId());
 
         // Color by value
         QColor col = valToColor(nb.at(b).val,cm);
@@ -183,11 +189,11 @@ void HWTopoVizWidget::mousePressEvent(QMouseEvent *e)
     if(!processed)
         return;
 
-    hwNode *node = nodeAtPosition(e->pos());
+    Component *c = nodeAtPosition(e->pos());
 
-    if(node)
+    if(c)
     {
-        selectSamplesWithinNode(node);
+        selectSamplesWithinNode(c);
     }
 
 }
@@ -197,30 +203,41 @@ void HWTopoVizWidget::mouseMoveEvent(QMouseEvent* e)
     if(!processed)
         return;
 
-    hwNode *node = nodeAtPosition(e->pos());
+    Component *c = nodeAtPosition(e->pos());
 
-    if(node)
+    if(c)
     {
-        QString label;
-
-        if(node->depth == dataSet->getTopo()->totalDepth)
-            label = "CPU " + QString::number(node->id) + "\n";
-        else if(node->depth > 1)
-            label = "L" + QString::number(node->id) + " Cache\n";
-        else if(node->depth == 1)
-            label = "NUMA Node " + QString::number(node->id) + "\n";
-        else
-            label = "RAM\n";
+        QString label = QString::fromStdString(c->GetName());
+        if(c->GetComponentType() == SYS_SAGE_COMPONENT_CACHE)
+            label += "L" + QString::number(((Cache*)c)->GetCacheLevel());
+        label += " (" + QString::number(c->GetId()) + ") \n";
 
         label += "\n";
-        label += "Size: " + QString::number(node->size) + " bytes\n";
+        if(c->GetComponentType() == SYS_SAGE_COMPONENT_CACHE)
+            label += "Size: " + QString::number(((Cache*)c)->GetCacheSize()) + " bytes\n";
 
         label += "\n";
 
         int numCycles = 0;
         int numSamples = 0;
-        numSamples += node->sampleSets[dataSet].selSamples.size();
-        numCycles += node->sampleSets[dataSet].selCycles;
+        //QMap<DataObject*,SampleSet>*sampleSets = (QMap<DataObject*,SampleSet>*)c->attrib["sampleSets"];
+        // numSamples += (*sampleSets)[dataSet].selSamples.size();
+        // numCycles += (*sampleSets)[dataSet].selCycles;
+
+        int direction;
+        if(c->GetComponentType() == SYS_SAGE_COMPONENT_THREAD)
+        {
+            direction = SYS_SAGE_DATAPATH_INCOMING;
+        }else {
+            direction = SYS_SAGE_DATAPATH_OUTGOING;
+        }
+        vector<DataPath*> dp_vec;
+        c->GetAllDpByType(&dp_vec, SYS_SAGE_MITOS_SAMPLE, direction);
+        for(DataPath* dp : dp_vec) {
+            SampleSet *ss = (SampleSet*)dp->attrib["sample_set"];
+            numSamples += ss->selSamples.size();
+            numCycles += ss->selCycles;
+        }
 
         label += "Samples: " + QString::number(numSamples) + "\n";
         label += "Cycles: " + QString::number(numCycles) + "\n";
@@ -259,26 +276,46 @@ void HWTopoVizWidget::calcMinMaxes()
     depthTransRanges.resize(depthRange.second - depthRange.first);
     depthTransRanges.fill(limits);
 
+    Chip* cpu = (Chip*)dataSet->node->GetChild(1);
     for(int r=0, i=depthRange.first; i<depthRange.second; r++, i++)
     {
+        vector<Component*> componentsAtDepth;
+        cpu->GetComponentsNLevelsDeeper(&componentsAtDepth, i);
         // Get min/max for this row
         for(int j=widthRange[r].first; j<widthRange[r].second; j++)
         {
-            hwNode *node = dataSet->getTopo()->hardwareResourceMatrix[i][j];
+            Component * c = componentsAtDepth[j];
+            // QMap<DataObject*,SampleSet>*sampleSets = (QMap<DataObject*,SampleSet>*)c->attrib["sampleSets"];
+            // if(!sampleSets->contains(dataSet) )
+            //     continue;
+            // ElemSet &samples = (*sampleSets)[dataSet].selSamples;
+            // int numCycles = (*sampleSets)[dataSet].selCycles;
 
-            if(!node->sampleSets.contains(dataSet))
-                continue;
+            ElemSet samples;
+            int numCycles = 0;
+            int direction;
+            if(c->GetComponentType() == SYS_SAGE_COMPONENT_THREAD)
+            {
+                direction = SYS_SAGE_DATAPATH_INCOMING;
+            }else {
+                direction = SYS_SAGE_DATAPATH_OUTGOING;
+            }
+            vector<DataPath*> dp_vec;
+            c->GetAllDpByType(&dp_vec, SYS_SAGE_MITOS_SAMPLE, direction);
+            for(DataPath* dp : dp_vec) {
+                SampleSet *ss = (SampleSet*)dp->attrib["sample_set"];
+                samples.insert(ss->selSamples.begin(),ss->selSamples.end());
+                numCycles += ss->selCycles;
+            }
 
-            ElemSet &samples = node->sampleSets[dataSet].selSamples;
-            int *numCycles = &node->sampleSets[dataSet].selCycles;
 
-            qreal val = (dataMode == COLORBY_CYCLES) ? *numCycles : samples.size();
+            qreal val = (dataMode == COLORBY_CYCLES) ? numCycles : samples.size();
             //val = (qreal)(*numCycles) / (qreal)samples->size();
 
             depthValRanges[i].first=0;//min(depthValRanges[i].first,val);
             depthValRanges[i].second=max(depthValRanges[i].second,val);
 
-            qreal trans = node->transactions;
+            qreal trans = *(int*)(c->attrib["transactions"]);
             depthTransRanges[i].first=0;//min(depthTransRanges[i].first,trans);
             depthTransRanges[i].second=max(depthTransRanges[i].second,trans);
         }
@@ -289,7 +326,7 @@ void HWTopoVizWidget::calcMinMaxes()
 }
 
 void HWTopoVizWidget::constructNodeBoxes(QRectF rect,
-                                    hwTopo *topo,
+                                    Node *node,
                                     QVector<RealRange> &valRanges,
                                     QVector<RealRange> &transRanges,
                                     DataMode m,
@@ -299,24 +336,30 @@ void HWTopoVizWidget::constructNodeBoxes(QRectF rect,
     nbout.clear();
     lbout.clear();
 
-    if(topo == NULL)
+    if(node == NULL)
         return;
 
     float nodeMarginX = 2.0f;
     float nodeMarginY = 10.0f;
 
+    //TODO at the moment for one CPU
+    Chip* cpu = (Chip*)node->GetChild(1);
+    int maxTopoDepth = cpu->GetTopoTreeDepth();
+
     float deltaX = 0;
-    float deltaY = rect.height() / topo->hardwareResourceMatrix.size();
+    float deltaY = rect.height() / maxTopoDepth;
 
     // Adjust boxes to fill the rect space
-    for(int i=0; i<topo->hardwareResourceMatrix.size(); i++)
+    for(int i=0; i<maxTopoDepth; i++)
     {
-        deltaX = rect.width() / (float)topo->hardwareResourceMatrix[i].size();
-        for(int j=0; j<topo->hardwareResourceMatrix[i].size(); j++)
+        vector<Component*> componentsAtDepth;
+        cpu->GetComponentsNLevelsDeeper(&componentsAtDepth, i);
+        deltaX = rect.width() / (float)componentsAtDepth.size();
+        for(int j=0; j<componentsAtDepth.size(); j++)
         {
             // Create Node Box
             NodeBox nb;
-            nb.node = topo->hardwareResourceMatrix[i][j];
+            nb.component = componentsAtDepth[j];
             nb.box.setRect(rect.left()+j*deltaX,
                            rect.top()+i*deltaY,
                            deltaX,
@@ -325,8 +368,22 @@ void HWTopoVizWidget::constructNodeBoxes(QRectF rect,
             // Get value by cycles or samples
             int numCycles = 0;
             int numSamples = 0;
-            numSamples += nb.node->sampleSets[dataSet].selSamples.size();
-            numCycles += nb.node->sampleSets[dataSet].selCycles;
+            // QMap<DataObject*,SampleSet>* sampleSets = (QMap<DataObject*,SampleSet>*)nb.component->attrib["sampleSets"];
+            // numSamples += (*sampleSets)[dataSet].selSamples.size();
+            // numCycles += (*sampleSets)[dataSet].selCycles;
+            int direction;
+            if(nb.component->GetComponentType() == SYS_SAGE_COMPONENT_THREAD){
+                direction = SYS_SAGE_DATAPATH_INCOMING;
+            }else {
+                direction = SYS_SAGE_DATAPATH_OUTGOING;
+            }
+            vector<DataPath*> dp_vec;
+            nb.component->GetAllDpByType(&dp_vec, SYS_SAGE_MITOS_SAMPLE, direction);
+            for(DataPath* dp : dp_vec) {
+                SampleSet *ss = (SampleSet*)dp->attrib["sample_set"];
+                numSamples += ss->selSamples.size();
+                numCycles += ss->selCycles;
+            }
 
             qreal unscaledval = (m == COLORBY_CYCLES) ? numCycles : numSamples;
             nb.val = scale(unscaledval,
@@ -345,8 +402,8 @@ void HWTopoVizWidget::constructNodeBoxes(QRectF rect,
             if(i-1 >= 0)
             {
                 LinkBox lb;
-                lb.parent = nb.node->parent;
-                lb.child = nb.node;
+                lb.parent = nb.component->GetParent();
+                lb.child = nb.component;
 
                 // scale width by transactions
                 lb.box.setRect(rect.left()+j*deltaX,
@@ -355,8 +412,8 @@ void HWTopoVizWidget::constructNodeBoxes(QRectF rect,
                                nodeMarginY);
 
                 lb.box.adjust(nodeMarginX,-nodeMarginY,-nodeMarginX,0);
-                
-                float linkWidth = scale(nb.node->transactions,
+
+                float linkWidth = scale(*(int*)(nb.component->attrib["transactions"]),
                                         transRanges.at(i).first,
                                         transRanges.at(i).second,
                                         1.0f,
@@ -373,14 +430,14 @@ void HWTopoVizWidget::constructNodeBoxes(QRectF rect,
     needsRepaint = true;
 }
 
-hwNode *HWTopoVizWidget::nodeAtPosition(QPoint p)
+Component *HWTopoVizWidget::nodeAtPosition(QPoint p)
 {
     QRectF drawBox = this->rect();
     drawBox.adjust(margin,margin,-margin,-margin);
 
     for(int b=0; b<nodeBoxes.size(); b++)
     {
-        hwNode *node = nodeBoxes[b].node;
+        Component *c = nodeBoxes[b].component;
         QRectF box = nodeBoxes[b].box;
 
         bool containsP = false;
@@ -395,14 +452,14 @@ hwNode *HWTopoVizWidget::nodeAtPosition(QPoint p)
         }
 
         if(containsP)
-            return node;
+            return c;
     }
 
     return NULL;
 }
 
-void HWTopoVizWidget::selectSamplesWithinNode(hwNode *node)
+void HWTopoVizWidget::selectSamplesWithinNode(Component *c)
 {
-    dataSet->selectByResource(node);
+    dataSet->selectByResource(c);
     emit selectionChangedSig();
 }
