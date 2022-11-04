@@ -188,7 +188,7 @@ private:
     void allocate();
     void collectTopoSamples();
     int parseCSVFile(QString dataFileName);
-
+    int DecodeDataSource(QString data_src_str);
 public:
     // Selection & Visibility
     selection_mode selectionMode() { return selMode; }
@@ -239,7 +239,7 @@ public:
 
 public:
     Node *node;
-    Chip* cpu;//TODO only temporary fix - prepare for more cpus, i.e. delete this member
+    //Chip* cpu;//TODO only temporary fix - prepare for more cpus, i.e. delete this member
 
     // Counts
     //ElemIndex numDimensions;

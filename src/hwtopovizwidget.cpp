@@ -92,14 +92,16 @@ void HWTopoVizWidget::processData()
         return;
 
     //TODO at the moment for one CPU
-    Chip* cpu = (Chip*)dataSet->node->GetChild(1);
-    int maxTopoDepth = cpu->GetTopoTreeDepth();
+    Node* node = (Node*)dataSet->node;
+    //Chip* cpu = (Chip*)dataSet->node->GetChild(1);
+    int maxTopoDepth = node->GetTopoTreeDepth()+1;
+    qDebug("Node Topology Depth: %d ", maxTopoDepth);
 
     depthRange = IntRange(0,maxTopoDepth);
     for(int i=depthRange.first; i<(int)depthRange.second; i++)
     {
         vector<Component*> componentsAtDepth;
-        cpu->GetComponentsNLevelsDeeper(&componentsAtDepth, i);
+        node->GetComponentsNLevelsDeeper(&componentsAtDepth, i);
         IntRange wr(0,componentsAtDepth.size());
         widthRange.push_back(wr);
     }
@@ -276,11 +278,11 @@ void HWTopoVizWidget::calcMinMaxes()
     depthTransRanges.resize(depthRange.second - depthRange.first);
     depthTransRanges.fill(limits);
 
-    Chip* cpu = (Chip*)dataSet->node->GetChild(1);
+    Node* node = dataSet->node;
     for(int r=0, i=depthRange.first; i<depthRange.second; r++, i++)
     {
         vector<Component*> componentsAtDepth;
-        cpu->GetComponentsNLevelsDeeper(&componentsAtDepth, i);
+        node->GetComponentsNLevelsDeeper(&componentsAtDepth, i);
         // Get min/max for this row
         for(int j=widthRange[r].first; j<widthRange[r].second; j++)
         {
@@ -343,8 +345,8 @@ void HWTopoVizWidget::constructNodeBoxes(QRectF rect,
     float nodeMarginY = 10.0f;
 
     //TODO at the moment for one CPU
-    Chip* cpu = (Chip*)node->GetChild(1);
-    int maxTopoDepth = cpu->GetTopoTreeDepth();
+    // Chip* cpu = (Chip*)node->GetChild(1);
+    int maxTopoDepth = node->GetTopoTreeDepth()+1;
 
     float deltaX = 0;
     float deltaY = rect.height() / maxTopoDepth;
@@ -353,7 +355,7 @@ void HWTopoVizWidget::constructNodeBoxes(QRectF rect,
     for(int i=0; i<maxTopoDepth; i++)
     {
         vector<Component*> componentsAtDepth;
-        cpu->GetComponentsNLevelsDeeper(&componentsAtDepth, i);
+        node->GetComponentsNLevelsDeeper(&componentsAtDepth, i);
         deltaX = rect.width() / (float)componentsAtDepth.size();
         for(int j=0; j<componentsAtDepth.size(); j++)
         {

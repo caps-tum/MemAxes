@@ -65,11 +65,11 @@ int DataObject::loadHardwareTopology(QString filename)
     int err = parseHwlocOutput(node, filename.toUtf8().constData()); //adds topo to a next node
 
     //TODO temporary CPU
-    cpu = (Chip*)(node->GetChild(1));
+    //cpu = (Chip*)(node->GetChild(1));
 
     //create empty metadata items "sampleSets" and "transactions" for each Compoenent
     vector<Component*> allComponents;
-    cpu->GetSubtreeNodeList(&allComponents);
+    node->GetSubtreeNodeList(&allComponents);
 
     for(int i=0; i<allComponents.size(); i++)
     {
@@ -440,7 +440,7 @@ void DataObject::selectSet(ElemSet &s, int group)
 void DataObject::collectTopoSamples()
 {
     vector<Component*> allComponents;
-    cpu->GetSubtreeNodeList(&allComponents);
+    node->GetSubtreeNodeList(&allComponents);
     for(Component* c : allComponents)
     {
         *(int*)c->attrib["transactions"] = 0;
@@ -596,6 +596,34 @@ void DataObject::collectTopoSamples()
     // qDebug( "collectTopoSamples3");
 }
 
+int DataObject::DecodeDataSource(QString data_src_str)
+{ qDebug( "dataObject 22" );
+    if(data_src_str == "L1")
+        return 1;
+    else if(data_src_str == "LFB")
+        return 1;
+    else if(data_src_str == "L2")
+        return 2;
+    else if(data_src_str == "L3")
+        return 3;
+    else if(data_src_str == "Local RAM")
+        return 4;
+    else if(data_src_str == "Remote RAM 1 Hop")
+        return 4;
+    else if(data_src_str == "Remote RAM 2 Hops")
+        return 4;
+    else if(data_src_str == "Remote Cache 1 Hops")
+        return 3;
+    else if(data_src_str == "Remote Cache 2 Hops")
+        return 3;
+    else if(data_src_str == "I/O Memory")
+        return 4;
+    else if(data_src_str == "Uncached Memory")
+        return 4;
+    return -1;
+}
+
+
 int DataObject::parseCSVFile(QString dataFileName)
 {
     // Open the file
@@ -668,16 +696,15 @@ int DataObject::parseCSVFile(QString dataFileName)
         s.addr = lineValues[header.indexOf("addr")].toLongLong();
         s.cpu = lineValues[header.indexOf("cpu")].toInt();
         s.latency = lineValues[header.indexOf("latency")].toLongLong();
-        s.data_src = dseDepth(lineValues[header.indexOf("data_src")].toInt(NULL,10));
+        //s.data_src = dseDepth(lineValues[header.indexOf("data_src")].toInt(NULL,10));
+        s.data_src = DecodeDataSource(lineValues[header.indexOf("level")]);
         s.visible = VISIBLE;
         samples.push_back(s);
 
         //add samples as DataPath pointers
         Component * compTarget = node->FindSubcomponentById(s.cpu, SYS_SAGE_COMPONENT_THREAD);
         Component * compSrc = compTarget;//connect with the right memory/cache
-        while(true){
-            if(compSrc == NULL)
-                break;
+        while(compSrc != NULL && s.data_src != -1){
             compSrc = compSrc->GetParent();
             if(s.data_src == 1
                 && compSrc->GetComponentType() == SYS_SAGE_COMPONENT_CACHE
@@ -1005,7 +1032,7 @@ void DataObject::calcStatistics()
 qreal distanceHardware(DataObject *d, ElemSet *s1, ElemSet *s2)
 {
 
-    int cpuDepth = d->cpu->GetTopoTreeDepth();
+    int nodeTopoDepth = d->node->GetTopoTreeDepth()+1;
     int dseDepth;
 
     // Vars
@@ -1013,12 +1040,12 @@ qreal distanceHardware(DataObject *d, ElemSet *s1, ElemSet *s2)
     std::vector<qreal> t1means,t2means;
     std::vector<qreal> t1stddev,t2stddev;
 
-    t1.resize(cpuDepth,0);
-    t2.resize(cpuDepth,0);
-    t1means.resize(cpuDepth,0);
-    t1stddev.resize(cpuDepth,0);
-    t2means.resize(cpuDepth,0);
-    t2stddev.resize(cpuDepth,0);
+    t1.resize(nodeTopoDepth,0);
+    t2.resize(nodeTopoDepth,0);
+    t1means.resize(nodeTopoDepth,0);
+    t1stddev.resize(nodeTopoDepth,0);
+    t2means.resize(nodeTopoDepth,0);
+    t2stddev.resize(nodeTopoDepth,0);
 
     qreal n1 = s1->size();
     qreal n2 = s2->size();
@@ -1033,7 +1060,7 @@ qreal distanceHardware(DataObject *d, ElemSet *s1, ElemSet *s2)
         dseDepth = d->samples[*it].data_src;
         // lat = d->at(*it,d->latencyDim);
         // dseDepth = d->at(*it,d->dataSourceDim);
-        t1[cpuDepth] += lat;
+        t1[nodeTopoDepth] += lat;
         t1[dseDepth] += dseDepth;
     }
 
@@ -1044,12 +1071,12 @@ qreal distanceHardware(DataObject *d, ElemSet *s1, ElemSet *s2)
         dseDepth = d->samples[*it].data_src;
         // lat = d->at(*it,d->latencyDim);
         // dseDepth = d->at(*it,d->dataSourceDim);
-        t2[cpuDepth] += lat;
+        t2[nodeTopoDepth] += lat;
         t2[dseDepth] += dseDepth;
     }
 
     // Compute means
-    for(int i=0; i<cpuDepth; i++)
+    for(int i=0; i<nodeTopoDepth; i++)
     {
         t1means[i] = t1.at(i) / n1;
         t2means[i] = t2.at(i) / n2;
@@ -1072,7 +1099,7 @@ qreal distanceHardware(DataObject *d, ElemSet *s1, ElemSet *s2)
         // dseDepth = d->at(*it,d->dataSourceDim);
         t2stddev[dseDepth] += (lat-t2means.at(dseDepth))*(lat-t2means.at(dseDepth));
     }
-    for(int i=0; i<cpuDepth; i++)
+    for(int i=0; i<nodeTopoDepth; i++)
     {
         t1stddev[i] /= n1;
         t2stddev[i] /= n2;
@@ -1080,7 +1107,7 @@ qreal distanceHardware(DataObject *d, ElemSet *s1, ElemSet *s2)
 
     // Euclidean length of means vector
     qreal dist = 0;
-    for(int i=0; i<cpuDepth; i++)
+    for(int i=0; i<nodeTopoDepth; i++)
     {
         dist += (t1means[i]+t2means[i])*(t1means[i]+t2means[i]);
     }
