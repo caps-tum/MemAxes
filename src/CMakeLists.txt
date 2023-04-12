@@ -51,14 +51,12 @@ set(HEADERS
   util.h
   varvizwidget.h
   vizwidget.h)
-  #volumevizwidget.h)
 
 set(UIC
   ui_form.h)
 
 # Build Target
 add_executable(MemAxes MACOSX_BUNDLE ${SOURCES} ${HEADERS} ${UIC})
-# add_executable(MemAxes ${SOURCES} ${HEADERS} ${UIC})
 
 # C++11 support
 target_compile_features(MemAxes PRIVATE cxx_range_for)

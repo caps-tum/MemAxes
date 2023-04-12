@@ -50,71 +50,69 @@
 
 class DataObject;
 
-class HWNode
+typedef unsigned long long ElemIndex;
+typedef std::set<ElemIndex> ElemSet;
+
+struct SampleSet
 {
-public:
-    HWNode();
-    HWNode(HWNode *other, HWNode *p);
-
-    QString type;
-
-    int id;
-    int depth;
-    long long size;
-    long long numTransactions;
-    long long numAllCycles;
-    long long numSelectedCycles;
-
-    HWNode *parent;
-    std::vector<HWNode*> children;
-
-    ElemSet allSamples;
-    ElemSet selectedSamples;
+    int totCycles;
+    int selCycles;
+    ElemSet totSamples;
+    ElemSet selSamples;
 };
 
-class HWTopo
-{
-public:
-    HWTopo();
-    HWTopo(HWTopo* other);
-
-    ~HWTopo();
-
-    HWNode *hardwareResourceNodeFromXMLNode(QXmlStreamReader *xml, HWNode *parent);
-    int loadHardwareTopologyFromXML(QString fileName);
-    void collectSamples(DataObject *d, ElemSet *s);
-
-    ElemSet &getAllSamples();
-    long long getTotalNumAllCycles();
-    long long getTotalNumSelectedCycles();
-    long long getTotalNumTransactions();
-
-    // Meta
-    QString hardwareName;
-
-    int numCPUs;
-    int numNUMADomains;
-    int totalDepth;
-
-    // Topology infocmation
-    HWNode *hardwareResourceRoot;
-
-    std::vector<HWNode*> allHardwareResourceNodes;
-    std::vector< std::vector<HWNode*> > hardwareResourceMatrix;
-
-    std::vector<HWNode*> *CPUNodes;
-    std::vector<HWNode*> *NUMANodes;
-
-    QMap<int,HWNode*> CPUIDMap;
-    QMap<int,HWNode*> NUMAIDMap;
-
-private:
-    ElemSet allSamples;
-
-private:
-    void processLoadedTopology();
-    void constructHardwareResourceMatrix();
-    void addToMatrix(HWNode *node);
-};
+// class hwNode
+// {
+// public:
+//     hwNode();
+//
+//     QString name;
+//
+//     int id;
+//     int depth;
+//     long long size;
+//     long long transactions;
+//
+//     hwNode *parent;
+//     QVector<hwNode*> children;
+//
+//     QMap<DataObject*,SampleSet> sampleSets;
+// };
+//
+// class hwTopo
+// {
+// public:
+//     hwTopo();
+//
+//     hwNode *hardwareResourceNodeFromXMLNode(QXmlStreamReader *xml, hwNode *parent);
+//     hwNode *hardwareResourceNodeFromXMLNode_old(QXmlStreamReader *xml, hwNode *parent);
+//     int loadHardwareTopologyFromXML(QString fileName);
+//
+//     QString hardwareName;
+//
+//     int numCPUs;
+//     int numNUMADomains;
+//     int totalDepth;
+//
+//     int cpuDepth;
+//     int numaDepth;
+//
+//     hwNode *hardwareResourceRoot;
+//
+//     QVector<hwNode*> allHardwareResourceNodes;
+//     QVector< QVector<hwNode*> > hardwareResourceMatrix;
+//
+//     QVector<hwNode*> *CPUNodes;
+//     QVector<hwNode*> *NUMANodes;
+//
+//     QMap<int,hwNode*> CPUIDMap;
+//     QMap<int,hwNode*> NUMAIDMap;
+//
+// private:
+//     void processLoadedTopology();
+//     void processLoadedTopology_old();
+//     void constructHardwareResourceMatrix();
+//     void addToMatrix(hwNode *node);
+// };
 
 #endif // HARDWARETOPOLOGY_H
