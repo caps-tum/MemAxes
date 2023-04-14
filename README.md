@@ -40,19 +40,17 @@ build Qt5.
 ## Hardware Topology
 ![image](images/topo.png)
 
-The hardware resources of a node are displayed as a hierarchy.
-Internal nodes in the hierarchy represent memory resources, i.e.
-NUMA nodes and caches, and leaves represent logical processors.
-MemAxes can show this hierarchy either radially (as shown) or vertically,
-by choosing either Sunburst or Icicle, respectively.
+The hardware resources of a node are displayed as a hierarchy, where
+the node is the root, its memory resources are internal nodes, and
+logical cores are the leaves. MemAxes displays this hierarchy either
+radially, as a Sunburst chart, or vertically, as an Icicle chart
+(user-specified).
 
-The colors of the segments within the hierarchy represent either total
-memory access cycles associated with the resource or total memory access
-samples associated with it (you can select an option in the top pane).
-
-The thick black lines between segments represent the total number of
-transactions between pairs of resources, assuming the hardware copies
-memory between caches from largest to smallest after the memory is found.
+Within the nodes, MemAxes displays either the number of total memory
+access cycles or samples associated with a particular resource as a
+mini bar chart. The bar charts are scaled relative to all other
+resources at the same depth, e.g. all L1 caches use the same scale,
+but may not use the same scale used by L2 caches.
 
 Nodes may be selected by clicking, upon which all samples associated
 with the clicked resource will be selected. On mouse hover, a tooltip
@@ -69,27 +67,17 @@ top offending line of code (not shown).
 Either lines or variables may be selected by clicking, upon which all
 samples associated with that line or variable will be selected.
 
-## Application Context
-![image](images/application.png)
-
-If samples are mapped to x, y, and z locations, the application
-context view shows a direct volume rendering of the number of samples
-associated with each location on a uniform grid. The transfer function
-automatically configures based on the selection, such that the average
-values are shown in green with half opacity, the maximum values are
-shown in red with full opacity, and the lowest values are shown in
-blue with nearly zero opacity. The user may manually configure the
-transfer function as well (though primitively, for now).
-
-There is no selection capability in this view, but the rendering will
-represent the current selection only (or the entire dataset, if
-nothing is selected).
-
-## Parallel Histograms
+## Parallel Coordinates
 ![image](images/pcoords.png)
 
-This view shows a histogram of each axis for the current selection (or
-for all the data, if nothing is selected).
+The parallel coordinate view is an abstract multidimensional
+representation that shows all values of all samples in one view. Each
+parallel axis denotes an attribute of the sample, and each polyline
+that intersects the axes represents a single sample.
+
+MemAxes includes options to change the opacity of selected or
+unselected samples, as well as show histograms representing the number
+of samples that intersect an axis over small bins.
 
 The user may select ranges on any axis by clicking and dragging
 vertically on an axis, as well as rearrange axes by dragging the name
@@ -109,14 +97,6 @@ MemAxes was written by Alfredo Gimenez.
 
 # License
 
-MemAxes is distributed under the Apache-2.0 license with the LLVM exception.
-All new contributions must be made under this license. Copyrights and patents
-in the Mitos project are retained by contributors. No copyright assignment is
-required to contribute to MemAxes.
+MemAxes is released under an LGPL license. For more details see the LICENSE file.
 
-See [LICENSE](https://github.com/llnl/memaxes/blob/main/LICENSE) and
-[NOTICE](https://github.com/llnl/memaxes/blob/main/NOTICE) for details.
-
-SPDX-License-Identifier: (Apache-2.0 WITH LLVM-exception)
-
-`LLNL-CODE-838739`
+`LLNL-CODE-663358`

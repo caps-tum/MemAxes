@@ -41,7 +41,6 @@
 
 #include "vizwidget.h"
 #include "hwtopodrawable.h"
-#include "Topology.hpp"
 
 #include <QMouseEvent>
 #include <QPair>
@@ -75,7 +74,7 @@ public slots:
     void setVizModeSunburst(bool on) { if(on) { hwPainter->setVizMode(SUNBURST); selectionChangedSlot(); } }
 
 private:
-    void selectSamplesWithinNode(Node *lvl);
+    void selectSamplesWithinNode(HWNode *lvl);
 
 private:
     HWTopoPainter *hwPainter;

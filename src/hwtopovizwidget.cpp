@@ -78,24 +78,10 @@ void HWTopoVizWidget::processData()
 {
     processed = false;
 
-    if(dataSet->node == NULL)
+    if(dataSet->getTopo() == NULL)
         return;
 
     hwPainter->setTopo(dataSet->getTopo());
-    //TODO at the moment for one CPU
-    Node* node = (Node*)dataSet->node;
-    //Chip* cpu = (Chip*)dataSet->node->GetChild(1);
-    int maxTopoDepth = node->GetTopoTreeDepth()+1;
-    qDebug("Node Topology Depth: %d ", maxTopoDepth);
-
-    depthRange = IntRange(0,maxTopoDepth);
-    for(int i=depthRange.first; i<(int)depthRange.second; i++)
-    {
-        vector<Component*> componentsAtDepth;
-        node->GetComponentsNLevelsDeeper(&componentsAtDepth, i);
-        IntRange wr(0,componentsAtDepth.size());
-        widthRange.push_back(wr);
-    }
 
     processed = true;
     needsCalcMinMaxes = true;
@@ -131,11 +117,11 @@ void HWTopoVizWidget::mousePressEvent(QMouseEvent *e)
     if(!processed)
         return;
 
-    Component *c = hwPainter->nodeAtPosition(e->pos());
+    HWNode *node = hwPainter->nodeAtPosition(e->pos());
 
-    if(c)
+    if(node)
     {
-        selectSamplesWithinNode(c);
+        selectSamplesWithinNode(node);
         needsCalcMinMaxes = true;
     }
 }
@@ -145,41 +131,21 @@ void HWTopoVizWidget::mouseMoveEvent(QMouseEvent* e)
     if(!processed)
         return;
 
-    Component *c = hwPainter->nodeAtPosition(e->pos());
+    HWNode *node = hwPainter->nodeAtPosition(e->pos());
 
-    if(c)
+    if(node)
     {
-        QString label = QString::fromStdString(c->GetName());
-        if(c->GetComponentType() == SYS_SAGE_COMPONENT_CACHE)
-            label += "L" + QString::number(((Cache*)c)->GetCacheLevel());
-        label += " (" + QString::number(c->GetId()) + ") \n";
+        QString label;
+
+        label = node->type + " " + QString::number(node->id) + "\n";
 
         label += "\n";
-        if(c->GetComponentType() == SYS_SAGE_COMPONENT_CACHE)
-            label += "Size: " + QString::number(((Cache*)c)->GetCacheSize()) + " bytes\n";
+        label += "Size: " + QString::number(node->size) + " bytes\n";
 
         label += "\n";
 
-        int numCycles = 0;
-        int numSamples = 0;
-        //QMap<DataObject*,SampleSet>*sampleSets = (QMap<DataObject*,SampleSet>*)c->attrib["sampleSets"];
-        // numSamples += (*sampleSets)[dataSet].selSamples.size();
-        // numCycles += (*sampleSets)[dataSet].selCycles;
-
-        int direction;
-        if(c->GetComponentType() == SYS_SAGE_COMPONENT_THREAD)
-        {
-            direction = SYS_SAGE_DATAPATH_INCOMING;
-        }else {
-            direction = SYS_SAGE_DATAPATH_OUTGOING;
-        }
-        vector<DataPath*> dp_vec;
-        c->GetAllDpByType(&dp_vec, SYS_SAGE_MITOS_SAMPLE, direction);
-        for(DataPath* dp : dp_vec) {
-            SampleSet *ss = (SampleSet*)dp->attrib["sample_set"];
-            numSamples += ss->selSamples.size();
-            numCycles += ss->selCycles;
-        }
+        int numCycles = node->numSelectedCycles;
+        int numSamples = node->selectedSamples.size();
 
         label += "Samples: " + QString::number(numSamples) + "\n";
         label += "Cycles: " + QString::number(numCycles) + "\n";

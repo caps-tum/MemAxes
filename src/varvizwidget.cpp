@@ -88,27 +88,17 @@ void VarViz::processData()
     varBlocks.clear();
 
     // Get metric values
-    for(Sample s: dataSet->samples)
+    int elem = 0;
+    QVector<qreal>::Iterator p;
+    for(elem=0, p=dataSet->begin; p!=dataSet->end; elem++, p+=dataSet->numDimensions)
     {
-        if(dataSet->selectionDefined() && !dataSet->selected(s.sampleId))
+        if(dataSet->selectionDefined() && !dataSet->selected(elem))
             continue;
 
-        int varIdx = this->getVariableID(s.variable);
-        varBlocks[varIdx].val += s.latency;
+        int varIdx = this->getVariableID(dataSet->varNames[elem]);
+        varBlocks[varIdx].val += *(p+dataSet->latencyDim);
         varMaxVal = std::max(varMaxVal,varBlocks[varIdx].val);
-
     }
-    // int elem = 0;
-    // QVector<qreal>::Iterator p;
-    // for(elem=0, p=dataSet->begin; p!=dataSet->end; elem++, p+=dataSet->numDimensions)
-    // {
-    //     if(dataSet->selectionDefined() && !dataSet->selected(elem))
-    //         continue;
-    //
-    //     int varIdx = this->getVariableID(dataSet->varNames[elem]);
-    //     varBlocks[varIdx].val += *(p+dataSet->latencyDim);
-    //     varMaxVal = std::max(varMaxVal,varBlocks[varIdx].val);
-    // }
 
     // Sort based on value
     qSort(varBlocks.begin(),varBlocks.end());

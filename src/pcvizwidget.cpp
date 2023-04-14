@@ -80,7 +80,7 @@ PCVizWidget::PCVizWidget(QWidget *parent)
     this->setMouseTracking(true);
     this->setContextMenuPolicy(Qt::CustomContextMenu);
 
-    connect(this, SIGNAL(customContextMenuRequested(const QPoint &)),
+    connect(this, SIGNAL(customContextMenuRequested(const QPoint &)), 
             this, SLOT(showContextMenu(const QPoint &)));
 }
 
@@ -96,8 +96,7 @@ void PCVizWidget::processData()
     if(dataSet->empty())
         return;
 
-    // numDimensions = dataSet->numDimensions;
-    numDimensions = NUM_SAMPLE_AXES;
+    numDimensions = dataSet->numDimensions;
 
     dimMins.resize(numDimensions);
     dimMaxes.resize(numDimensions);
@@ -199,7 +198,7 @@ bool PCVizWidget::eventFilter(QObject *obj, QEvent *event)
     if (event->type() == QEvent::MouseMove)
     {
         // Dragging to create a selection
-        if(mouseEvent->buttons() && selectionAxis != -1)
+        if(selectionAxis != -1)
         {
             lastSel = clamp((qreal)mousePos.y(),plotBBox.top(),plotBBox.bottom());
 
@@ -337,30 +336,19 @@ void PCVizWidget::calcMinMaxes()
     dimMins.fill(std::numeric_limits<double>::max());
     dimMaxes.fill(std::numeric_limits<double>::min());
 
-    for( Sample s : dataSet->samples)
+    int elem;
+    QVector<qreal>::Iterator p;
+    for(elem=0, p=dataSet->begin; p!=dataSet->end; elem++, p+=numDimensions)
     {
-        if(!dataSet->visible(s.sampleId))
+        if(!dataSet->visible(elem))
             continue;
+
         for(int i=0; i<numDimensions; i++)
         {
-            long long val = dataSet->GetSampleAttribByIndex(&s, i);
-            dimMins[i] = std::min(dimMins[i],(qreal)val);
-            dimMaxes[i] = std::max(dimMaxes[i],(qreal)val);
+            dimMins[i] = std::min(dimMins[i],*(p+i));
+            dimMaxes[i] = std::max(dimMaxes[i],*(p+i));
         }
     }
-    // int elem;
-    // QVector<qreal>::Iterator p;
-    // for(elem=0, p=dataSet->begin; p!=dataSet->end; elem++, p+=numDimensions)
-    // {
-    //     if(!dataSet->visible(elem))
-    //         continue;
-    //
-    //     for(int i=0; i<numDimensions; i++)
-    //     {
-    //         dimMins[i] = std::min(dimMins[i],*(p+i));
-    //         dimMaxes[i] = std::max(dimMaxes[i],*(p+i));
-    //     }
-    // }
 }
 
 void PCVizWidget::calcHistBins()
@@ -370,16 +358,16 @@ void PCVizWidget::calcHistBins()
 
     histMaxVals.fill(0);
 
-    for( Sample s : dataSet->samples)
+    int elem;
+    QVector<qreal>::Iterator p;
+    for(elem=0, p=dataSet->begin; p!=dataSet->end; elem++, p+=numDimensions)
     {
-        if(dataSet->selectionDefined() && !dataSet->selected(s.sampleId))
+        if(dataSet->selectionDefined() && !dataSet->selected(elem))
             continue;
 
         for(int i=0; i<numDimensions; i++)
         {
-            long long val = dataSet->GetSampleAttribByIndex(&s, i);
-
-            int histBin = floor(scale(val,dimMins[i],dimMaxes[i],0,numHistBins));
+            int histBin = floor(scale(*(p+i),dimMins[i],dimMaxes[i],0,numHistBins));
 
             if(histBin >= numHistBins)
                 histBin = numHistBins-1;
@@ -390,27 +378,6 @@ void PCVizWidget::calcHistBins()
             histMaxVals[i] = std::max(histMaxVals[i],histVals[i][histBin]);
         }
     }
-
-    // int elem;
-    // QVector<qreal>::Iterator p;
-    // for(elem=0, p=dataSet->begin; p!=dataSet->end; elem++, p+=numDimensions)
-    // {
-    //     if(dataSet->selectionDefined() && !dataSet->selected(elem))
-    //         continue;
-    //
-    //     for(int i=0; i<numDimensions; i++)
-    //     {
-    //         int histBin = floor(scale(*(p+i),dimMins[i],dimMaxes[i],0,numHistBins));
-    //
-    //         if(histBin >= numHistBins)
-    //             histBin = numHistBins-1;
-    //         if(histBin < 0)
-    //             histBin = 0;
-    //
-    //         histVals[i][histBin] += 1;
-    //         histMaxVals[i] = std::max(histMaxVals[i],histVals[i][histBin]);
-    //     }
-    // }
 
     // Scale hist values to [0,1]
     for(int i=0; i<numDimensions; i++)
@@ -571,7 +538,7 @@ void PCVizWidget::drawQtPainter(QPainter *painter)
 
         painter->drawLine(a,b);
 
-        QString text = SampleAxes::SampleAxesNames[i];
+        QString text = dataSet->meta[i];
         QPointF center = b - QPointF(fm.width(text)/2,15);
         painter->drawText(center,text);
 

@@ -48,33 +48,20 @@
 
 DataObject::DataObject()
 {
-    // numDimensions = 0;
+    numDimensions = 0;
     numElements = 0;
     numSelected = 0;
     numVisible = 0;
 
-    node = NULL;
+    topo = NULL;
 
     selMode = MODE_NEW;
 }
 
 int DataObject::loadHardwareTopology(QString filename)
 {
-    node = new Node(0);
-    int err = parseHwlocOutput(node, filename.toUtf8().constData()); //adds topo to a next node
-
-    //TODO temporary CPU
-    //cpu = (Chip*)(node->GetChild(1));
-
-    //create empty metadata items "sampleSets" and "transactions" for each Compoenent
-    vector<Component*> allComponents;
-    node->GetSubtreeNodeList(&allComponents);
-
-    for(int i=0; i<allComponents.size(); i++)
-    {
-        // allComponents[i]->attrib["sampleSets"] = (void*) new QMap<DataObject*,SampleSet>();
-        allComponents[i]->attrib["transactions"] = (void*) new int();
-    }
+    topo = new HWTopo();
+    int err = topo->loadHardwareTopologyFromXML(filename);
     return err;
 }
 
@@ -85,22 +72,23 @@ int DataObject::loadData(QString filename)
         return err;
 
     calcStatistics();
-    // constructSortedLists();
+    constructSortedLists();
 
     return 0;
 }
 
 void DataObject::allocate()
 {
-    numElements = samples.size();
-    // numDimensions = meta.size();
-    // numElements = vals.size() / numDimensions;
-    //
-    // begin = vals.begin();
-    // end = vals.end();
+    numDimensions = meta.size();
+    numElements = vals.size() / numDimensions;
 
-    // visibility.resize(numElements);
-    // visibility.fill(VISIBLE);
+    begin = vals.begin();
+    end = vals.end();
+
+    clusterTrees.resize(numDimensions,NULL);
+
+    visibility.resize(numElements);
+    visibility.fill(VISIBLE);
 
     selectionGroup.resize(numElements);
     selectionGroup.fill(0); // all belong to 0 (unselected)
@@ -116,8 +104,7 @@ int DataObject::selected(ElemIndex index)
 
 bool DataObject::visible(ElemIndex index)
 {
-    return samples[(int)index].visible;
-    // return visibility.at((int)index);
+    return visibility.at((int)index);
 }
 
 bool DataObject::selectionDefined()
@@ -171,8 +158,7 @@ void DataObject::showData(unsigned int index)
 {
     if(!visible(index))
     {
-        samples[(int)index].visible = VISIBLE;
-        //visibility[index] = VISIBLE;
+        visibility[index] = VISIBLE;
         numVisible++;
     }
 }
@@ -181,51 +167,41 @@ void DataObject::hideData(unsigned int index)
 {
     if(visible(index))
     {
-        samples[(int)index].visible = INVISIBLE;
-        //visibility[index] = INVISIBLE;
+        visibility[index] = INVISIBLE;
         numVisible--;
     }
 }
 
 void DataObject::showAll()
 {
-    for(Sample s: samples)
-        s.visible = VISIBLE;
-    // visibility.fill(VISIBLE);
+    visibility.fill(VISIBLE);
     numVisible = numElements;
 }
 
 void DataObject::hideAll()
 {
-    for(Sample s: samples)
-        s.visible = INVISIBLE;
-    // visibility.fill(INVISIBLE);
+    visibility.fill(INVISIBLE);
     numVisible = 0;
 }
 
 // TODO: use a range query instead of checking everything
 ElemSet& DataObject::createSourceFileQuery(QString str)
 {
-    ElemSet selSet;
-    for(Sample s: samples)
+    ElemSet& selSet = *(new ElemSet);
+
+    ElemIndex elem;
+    QVector<qreal>::Iterator p;
+    for(elem=0, p=this->begin; p!=this->end; elem++, p+=this->numDimensions)
     {
-        if(s.source == str)
-            selSet.insert(s.sampleId);
+        if(fileNames[elem] == str)
+            selSet.insert(elem);
     }
     return selSet;
 }
 
-// struct indexedValueLtFunctor
-// {
-//     indexedValueLtFunctor(const struct indexedValue _it) : it(_it) {}
-//
-//     struct indexedValue it;
-//
-//     bool operator()(const struct indexedValue &other)
-//     {
-//         return it.val < other.val;
-//     }
-// };
+struct indexedValueLtFunctor
+{
+    indexedValueLtFunctor(const struct indexedValue _it) : it(_it) {}
 
     struct indexedValue it;
 
@@ -254,8 +230,7 @@ ElemSet& DataObject::createDimRangeQuery(int dim, qreal vmin, qreal vmax)
 
     if(ivMinQuery.val <= this->minimumValues[dim])
     {
-        if(sample.line >= vmin && sample.line < vmax)
-            selSet.insert(sample.sampleId);
+        itMin = dimSortedLists.at(dim).begin();
     }
     else
     {
@@ -304,40 +279,20 @@ ElemSet& DataObject::createVarNameQuery(QString str)
 {
     ElemSet& selSet = *(new ElemSet);
 
-    // ElemIndex elem;
-    // QVector<qreal>::Iterator p;
-    // for(elem=0, p=this->begin; p!=this->end; elem++, p+=this->numDimensions)
-    // {
-    //     if(varNames[elem] == str)
-    //         selSet.insert(elem);
-    // }
+    ElemIndex elem;
+    QVector<qreal>::Iterator p;
+    for(elem=0, p=this->begin; p!=this->end; elem++, p+=this->numDimensions)
+    {
+        if(varNames[elem] == str)
+            selSet.insert(elem);
+    }
 
     return selSet;
 }
 
 ElemSet& DataObject::createResourceQuery(HWNode *node)
 {
-    
-    for(Sample sample: samples)
-    {
-        if(sample.variable == str)
-            selSet.insert(sample.sampleId);
-    }
-    selectSet(selSet,group);
     return node->allSamples;
-}
-
-void DataObject::selectByResource(Component *c, int group)
-{
-    ElemSet resource_samples;
-    vector<DataPath*> dp_vec;
-    c->GetAllDpByType(&dp_vec, SYS_SAGE_MITOS_SAMPLE, SYS_SAGE_DATAPATH_INCOMING | SYS_SAGE_DATAPATH_OUTGOING);
-    for(DataPath* dp : dp_vec) {
-        resource_samples.insert(((SampleSet*)dp->attrib["sample_set"])->totSamples.begin(), ((SampleSet*)dp->attrib["sample_set"])->totSamples.end());
-    }
-    selectSet(resource_samples, group);
-    //selectSet( (*((QMap<DataObject*,SampleSet>*)c->attrib["sampleSets"]))[this].totSamples, group);
-    //selectSet(node->sampleSets[this].totSamples,group);
 }
 
 void DataObject::hideSelected()
@@ -478,190 +433,7 @@ int DataObject::getDimensions()
 int DataObject::parseCaliFile(QString caliFileName)
 {
     return 0;
-    vector<Component*> allComponents;
-    node->GetSubtreeNodeList(&allComponents);
-    for(Component* c : allComponents)
-    {
-        *(int*)c->attrib["transactions"] = 0;
-        //count incoming DP on a thread (all DPs point to a thread)
-        if(c->GetComponentType() == SYS_SAGE_COMPONENT_THREAD)
-        {
-            vector<DataPath*> dp_in_vec;
-            c->GetAllDpByType(&dp_in_vec, SYS_SAGE_MITOS_SAMPLE, SYS_SAGE_DATAPATH_INCOMING);
-            if(dp_in_vec.empty())
-            {
-                qDebug( "No samples on HW thread %d", c->GetId());
-                continue;
-            }
-            for(DataPath* dp_in : dp_in_vec)
-            {
-                SampleSet *ss = (SampleSet*)dp_in->attrib["sample_set"];
-                ss->selSamples.clear();
-                ss->selCycles = 0;
-
-                for(ElemIndex elemid : ss->totSamples)
-                {
-                    if(!selectionDefined() || selected(elemid))
-                    {
-                        ss->selSamples.insert(elemid);
-                        ss->selCycles += samples[elemid].latency;
-                    }
-                }
-            }
-        }
-    }
-    for(Component* c : allComponents)
-    {
-        if(c->GetComponentType() == SYS_SAGE_COMPONENT_THREAD)
-        {
-            vector<DataPath*> dp_in_vec;
-            c->GetAllDpByType(&dp_in_vec, SYS_SAGE_MITOS_SAMPLE, SYS_SAGE_DATAPATH_INCOMING);
-            for(DataPath* dp_in : dp_in_vec){
-                //add the number of samples to this thread and then to all parent nodes until the source
-                Component* parent = c;
-                do {
-                    *(int*)parent->attrib["transactions"] += ((SampleSet*)dp_in->attrib["sample_set"])->selSamples.size();
-                    parent = parent->GetParent();
-                } while(parent != dp_in->GetSource() && parent != NULL && parent->GetComponentType() != SYS_SAGE_COMPONENT_CHIP);
-            }
-        }
-    }
-
-    // // Reset info
-    // vector<Component*> allComponents;
-    // cpu->GetSubtreeNodeList(&allComponents);
-    // qDebug( "cpu [%d] = %p", cpu->GetComponentType(), cpu);
-    //
-    // map<int,Thread*> threadIdMap;
-    // for(int i=0; i<allComponents.size(); i++)
-    // {
-    //     if(allComponents[i]->GetComponentType() == SYS_SAGE_COMPONENT_THREAD)
-    //     {
-    //         threadIdMap[allComponents[i]->GetId()] = (Thread*)allComponents[i];
-    //         //qDebug( "threadIdMap [%d] = %p", allComponents[i]->GetId(), (Thread*)allComponents[i]);
-    //     }
-    // }
-    //
-    // for(int i=0; i<allComponents.size(); i++)
-    // {
-    //     //qDebug( "collectTopoSamplesxx = %p", allComponents[i]->attrib["sampleSets"]);
-    //     QMap<DataObject*,SampleSet>* sampleSets = (QMap<DataObject*,SampleSet>*)allComponents[i]->attrib["sampleSets"];
-    //     (*sampleSets)[this].totCycles = 0;
-    //     (*sampleSets)[this].selCycles = 0;
-    //     (*sampleSets)[this].totSamples.clear();
-    //     (*sampleSets)[this].selSamples.clear();
-    //     *(int*)(allComponents[i]->attrib["transactions"]) = 0;
-    // }
-    // qDebug( "collectTopoSamples2");
-    //
-    // // Go through each sample and add it to the right topo node
-    // ElemIndex elem;
-    // QVector<qreal>::Iterator p;
-    // int i = 0;
-    // int j=0;
-    //
-    // std::chrono::high_resolution_clock::time_point t_start, t_end;
-    // t_start = std::chrono::high_resolution_clock::now();
-    // for(elem=0, p=this->begin; p!=this->end; elem++, p+=this->numDimensions)
-    // {
-    //     //qDebug( "collectTopoSamples loop2 %d", elem);
-    //
-    //     // Get vars
-    //     int dse = *(p+dataSourceDim);
-    //     int cpu = *(p+cpuDim);
-    //     int cycles = *(p+latencyDim);
-    //
-    //
-    //     // Search for nodes
-    //     Thread* t = threadIdMap[cpu];
-    //
-    //     // Update data for serving resource
-    //     QMap<DataObject*,SampleSet>*sampleSets = (QMap<DataObject*,SampleSet>*)t->attrib["sampleSets"];
-    //     //qDebug( "--%llu collectTopoSamples cpu= %d cpuIndex= %d samples: %d cycles %d dse: %d", elem, cpu, cpuDim, (*sampleSets)[this].totSamples.size(), (*sampleSets)[this].totCycles, dse );
-    //     (*sampleSets)[this].totSamples.insert(elem);
-    //     (*sampleSets)[this].totCycles += cycles;
-    //
-    //     if(!selectionDefined() || selected(elem))
-    //     {
-    //         (*sampleSets)[this].selSamples.insert(elem);
-    //         (*sampleSets)[this].selCycles += cycles;
-    //     }
-    //
-    //     if(dse == -1)
-    //         continue;
-    //     //dse== 1 ->L1 Cache
-    //     //      2 ->L2
-    //     //      3 ->L3
-    //     //      4 ->main mem.
-    //
-    //     // Go up to data source
-    //     Component* c;
-    //     for(c = (Component*)t; c->GetParent() && c->GetComponentType() != SYS_SAGE_COMPONENT_CHIP ; c=c->GetParent())
-    //     {
-    //         if(!selectionDefined() || selected(elem))
-    //         {
-    //             *(int*)(c->attrib["transactions"])+= 1;
-    //             //qDebug( "---%llu chip: %d  transactions: %d dse %d", elem, c->GetComponentType(), *(int*)(c->attrib["transactions"]), dse);
-    //         }
-    //
-    //         volatile int type = c->GetComponentType();
-    //
-    //         if((type == SYS_SAGE_COMPONENT_CACHE && ((Cache*)c)->GetCacheLevel() == 1 && dse == 1) ||
-    //                 (type == SYS_SAGE_COMPONENT_CACHE && ((Cache*)c)->GetCacheLevel() == 2 && dse == 2) ||
-    //                 (type == SYS_SAGE_COMPONENT_CACHE && ((Cache*)c)->GetCacheLevel() == 3 && dse == 3) ||
-    //                 (type == SYS_SAGE_COMPONENT_NUMA && dse == 4))
-    //         {
-    //             break;
-    //         }
-    //     }
-    //
-    //     // Update data for core
-    //     sampleSets = (QMap<DataObject*,SampleSet>*)c->attrib["sampleSets"];
-    //     (*sampleSets)[this].totSamples.insert(elem);
-    //     (*sampleSets)[this].totCycles += cycles;
-    //
-    //     i++;
-    //     if(!selectionDefined() || selected(elem))
-    //     {
-    //         (*sampleSets)[this].selSamples.insert(elem);
-    //         (*sampleSets)[this].selCycles += cycles;
-    //
-    //         j++;
-    //     }
-    // }
-    // t_end = std::chrono::high_resolution_clock::now();
-    // qDebug("totSamples; %d; selSamples; %d; time; %llu", i, j, t_end.time_since_epoch().count()-t_start.time_since_epoch().count());
-    //
-    // qDebug( "collectTopoSamples3");
 }
-
-int DataObject::DecodeDataSource(QString data_src_str)
-{ qDebug( "dataObject 22" );
-    if(data_src_str == "L1")
-        return 1;
-    else if(data_src_str == "LFB")
-        return 1;
-    else if(data_src_str == "L2")
-        return 2;
-    else if(data_src_str == "L3")
-        return 3;
-    else if(data_src_str == "Local RAM")
-        return 4;
-    else if(data_src_str == "Remote RAM 1 Hop")
-        return 4;
-    else if(data_src_str == "Remote RAM 2 Hops")
-        return 4;
-    else if(data_src_str == "Remote Cache 1 Hops")
-        return 3;
-    else if(data_src_str == "Remote Cache 2 Hops")
-        return 3;
-    else if(data_src_str == "I/O Memory")
-        return 4;
-    else if(data_src_str == "Uncached Memory")
-        return 4;
-    return -1;
-}
-
 
 int DataObject::parseCSVFile(QString dataFileName)
 {
@@ -689,26 +461,14 @@ int DataObject::parseCSVFile(QString dataFileName)
 
     // Get metadata from first line
     line = dataStream.readLine();
-    // this->meta = line.split(',');
-    // this->numDimensions = this->meta.size();
-    //
-    // sourceDim = this->meta.indexOf("source");
-    // lineDim = this->meta.indexOf("line");
-    // variableDim = this->meta.indexOf("variable");
-    // dataSourceDim = this->meta.indexOf("data_src");
-    // indexDim = this->meta.indexOf("index");
-    // latencyDim = this->meta.indexOf("latency");
-    // nodeDim = this->meta.indexOf("node");
-    // cpuDim = this->meta.indexOf("cpu");
-    // xDim = this->meta.indexOf("xidx");
-    // yDim = this->meta.indexOf("yidx");
-    // zDim = this->meta.indexOf("zidx");
+    this->meta = line.split(',');
+    this->numDimensions = this->meta.size();
+
+    // Get dimensions from metadata
+    this->getDimensions();
 
     QVector<QString> varVec;
     QVector<QString> sourceVec;
-    QVector<QString> instrVec;
-    QStringList header = line.split(',');
-    ElemIndex numHeaderDimensions = header.size();
 
     unsigned long long minTime = std::numeric_limits<unsigned long long>::max();
     unsigned long long maxTime = 0;
@@ -721,129 +481,56 @@ int DataObject::parseCSVFile(QString dataFileName)
         line = dataStream.readLine();
         lineValues = line.split(',');
 
-        if(lineValues.size() != numHeaderDimensions)
+        if(lineValues.size() != this->numDimensions)
         {
-            std::cerr << "ERROR: element dimensions do not match headerdata!" << std::endl;
-            std::cerr << "At element " << elemid << std::endl;
+            std::cerr << "ERROR: element dimensions do not match metadata!" << std::endl;
+            std::cerr << "At element " << elem << std::endl;
             return -1;
         }
 
-        Sample s;
-        s.sampleId = elemid;
-        s.sourceUid = createUniqueID(sourceVec,lineValues[header.indexOf("source")]);
-        s.source = lineValues[header.indexOf("source")];
-        s.line = lineValues[header.indexOf("line")].toLongLong();
-        s.instructionUid = createUniqueID(instrVec,lineValues[header.indexOf("instruction")]);
-        s.instruction = lineValues[header.indexOf("instruction")];
-        s.bytes = lineValues[header.indexOf("bytes")].toLongLong();
-        s.ip = lineValues[header.indexOf("ip")].toLongLong();
-        s.variableUid = createUniqueID(varVec,lineValues[header.indexOf("variable")]);
-        s.variable = lineValues[header.indexOf("variable")];
-        s.buffer_size = lineValues[header.indexOf("buffer_size")].toLongLong();
-        s.dims = lineValues[header.indexOf("dims")].toInt();
-        s.xidx = lineValues[header.indexOf("xidx")].toInt();
-        s.yidx = lineValues[header.indexOf("yidx")].toInt();
-        s.zidx = lineValues[header.indexOf("zidx")].toInt();
-        s.pid = lineValues[header.indexOf("pid")].toInt();
-        s.tid = lineValues[header.indexOf("tid")].toInt();
-        s.time = lineValues[header.indexOf("time")].toLongLong();
-        s.addr = lineValues[header.indexOf("addr")].toLongLong();
-        s.cpu = lineValues[header.indexOf("cpu")].toInt();
-        s.latency = lineValues[header.indexOf("latency")].toLongLong();
-        //s.data_src = dseDepth(lineValues[header.indexOf("data_src")].toInt(NULL,10));
-        s.data_src = DecodeDataSource(lineValues[header.indexOf("level")]);
-        s.visible = VISIBLE;
-        samples.push_back(s);
-
-        //add samples as DataPath pointers
-        Component * compTarget = node->FindSubcomponentById(s.cpu, SYS_SAGE_COMPONENT_THREAD);
-        Component * compSrc = compTarget;//connect with the right memory/cache
-        while(compSrc != NULL && s.data_src != -1){
-            compSrc = compSrc->GetParent();
-            if(s.data_src == 1
-                && compSrc->GetComponentType() == SYS_SAGE_COMPONENT_CACHE
-                && ((Cache*)compSrc)->GetCacheLevel()==1) break;//L1
-            else if(s.data_src == 2
-                && compSrc->GetComponentType() == SYS_SAGE_COMPONENT_CACHE
-                && ((Cache*)compSrc)->GetCacheLevel()==2) break;//L2
-            else if(s.data_src == 3
-                && compSrc->GetComponentType() == SYS_SAGE_COMPONENT_CACHE
-                && ((Cache*)compSrc)->GetCacheLevel()==3) break;//L3
-            else if(s.data_src == 4
-                && (compSrc->GetComponentType() == SYS_SAGE_COMPONENT_NUMA
-                || compSrc->GetComponentType() == SYS_SAGE_COMPONENT_CHIP)) break;//main memory
-        }
-        if(compSrc == NULL || compTarget == NULL)
+        // Process individual dimensions differently
+        for(int i=0; i<lineValues.size(); i++)
         {
-            qDebug( "Source or target component not found (cpu %d %p data source %d %p)", s.cpu, compTarget, s.data_src, compSrc);
+            QString tok = lineValues[i];
+            if(i==variableDim)
+            {
+                ElemIndex uid = createUniqueID(varVec,tok);
+                this->vals.push_back(uid);
+                varNames.push_back(tok);
+            }
+            else if(i==sourceDim)
+            {
+                ElemIndex uid = createUniqueID(sourceVec,tok);
+                this->vals.push_back(uid);
+                fileNames.push_back(tok);
+            }
+            else if(i==dataSourceDim)
+            {
+                int depth = dseToDepth(tok.toULongLong());
+                this->vals.push_back(depth);
+            }
+            else if(i==timeDim)
+            {
+                unsigned long long time = tok.toULongLong();
+                minTime = std::min(time,minTime);
+                maxTime = std::max(time,maxTime);
+
+                this->vals.push_back(time);
+
+            }
+            else
+            {
+                this->vals.push_back(tok.toLongLong());
+            }
         }
-        else
+
+        allElems.insert(elem);
+        elem++;
+
+        if(numLines/elem > progress)
         {
-            vector<DataPath*> dp_vec;
-            compTarget->GetAllDpByType(&dp_vec, SYS_SAGE_MITOS_SAMPLE, SYS_SAGE_DATAPATH_INCOMING);
-            bool dp_exists = false;
-            DataPath* dp;
-            for(DataPath* dp_iter : dp_vec){
-                if(dp_iter->GetSource() == compSrc){
-                    dp = dp_iter;
-                    dp_exists = true;
-                    break;
-                }
-            }
-            if(!dp_exists){ //no sample connecting the two components
-                dp = NewDataPath(compSrc, compTarget, SYS_SAGE_DATAPATH_ORIENTED, SYS_SAGE_MITOS_SAMPLE);
-                dp->attrib["samples"] = (void*)new vector<Sample*>();
-                dp->attrib["sel_samples"] = (void*)new vector<Sample*>();
-                dp->attrib["sample_set"] = (void*)new SampleSet();
-                SampleSet *ss = (SampleSet*)dp->attrib["sample_set"];
-                ss->totCycles = 0;
-                ss->selCycles = 0;
-                ss->totSamples.clear();
-                ss->selSamples.clear();
-            }
-            ((vector<Sample*>*)(dp->attrib["samples"]))->push_back(&(samples[elemid]));
-            ((vector<Sample*>*)(dp->attrib["sel_samples"]))->push_back(&(samples[elemid]));
-            SampleSet *ss = (SampleSet*)dp->attrib["sample_set"];
-            ss->totCycles += s.latency;
-            ss->selCycles += s.latency;
-            ss->totSamples.insert(elemid);
-            ss->selSamples.insert(elemid);
+            progress = numLines / elem;
         }
-        elemid++;
-
-
-
-        //
-        //
-        // // Process individual dimensions differently
-        // for(int i=0; i<lineValues.size(); i++)
-        // {
-        //     QString tok = lineValues[i];
-        //     if(i==variableDim)
-        //     {
-        //         ElemIndex uid = createUniqueID(varVec,tok);
-        //         this->vals.push_back(uid);
-        //         varNames.push_back(tok);
-        //     }
-        //     else if(i==sourceDim)
-        //     {
-        //         ElemIndex uid = createUniqueID(sourceVec,tok);
-        //         this->vals.push_back(uid);
-        //         fileNames.push_back(tok);
-        //     }
-        //     else if(i==dataSourceDim)
-        //     {
-        //         int dseVal = tok.toInt(NULL,10);
-        //         int dse = dseDepth(dseVal);
-        //         // qDebug("elem %d dseVal %d dse %d", elemid, dseVal, dse);
-        //         this->vals.push_back(dse);
-        //     }
-        //     else
-        //     {
-        //         this->vals.push_back(tok.toLongLong());
-        //     }
-        // }
-
     }
 
     // Close and return
@@ -883,300 +570,115 @@ void DataObject::setSelectionMode(selection_mode mode, bool silent)
     con->log(selcmd);
 }
 
-long long DataObject::GetSampleAttribByIndex(Sample* s, int attrib_idx)
-{
-    switch((SampleAxes::SampleAxes)attrib_idx){
-        case SampleAxes::sampleId://0
-            return s->sampleId;
-        case SampleAxes::sourceUid://1
-            return s->sourceUid;
-        case SampleAxes::line://2
-            return s->line;
-        case SampleAxes::instructionUid://3
-            return s->instructionUid;
-        case SampleAxes::bytes: //4
-            return s->bytes;
-        case SampleAxes::ip: //5
-            return s->ip;
-        case SampleAxes::variableUid://6
-            return s->variableUid;
-        case SampleAxes::buffer_size: //7
-            return s->buffer_size;
-        case SampleAxes::dims: //8
-            return s->dims;
-        case SampleAxes::xidx://9
-            return s->xidx;
-        case SampleAxes::yidx://10
-            return s->yidx;
-        case SampleAxes::zidx://11
-            return s->zidx;
-        case SampleAxes::pid: //12
-            return s->pid;
-        case SampleAxes::tid: //13
-            return s->tid;
-        case SampleAxes::time: //14
-            return s->time;
-        case SampleAxes::addr: //15
-            return s->addr;
-        case SampleAxes::cpu://16
-            return s->cpu;
-        case SampleAxes::latency://17
-            return s->latency;
-        case SampleAxes::dataSrc://18
-            return s->data_src;
-        default:
-            return -999999999;
-    }
-}
-
-long long DataObject::GetSampleAttribByIndex(int sampleId, int attrib_idx)
-{
-
-    if(sampleId >= samples.size())
-        return -999999999;
-    Sample s = samples[sampleId];
-    return GetSampleAttribByIndex(&s,attrib_idx);
-}
-
 void DataObject::calcStatistics()
 {
-    sample_sums.resize(NUM_SAMPLE_AXES);
-    sample_mins.resize(NUM_SAMPLE_AXES);
-    sample_maxes.resize(NUM_SAMPLE_AXES);
-    sample_means.resize(NUM_SAMPLE_AXES);
-    sample_stdevs.resize(NUM_SAMPLE_AXES);
+    dimSums.resize(this->numDimensions);
+    minimumValues.resize(this->numDimensions);
+    maximumValues.resize(this->numDimensions);
+    meanValues.resize(this->numDimensions);
+    standardDeviations.resize(this->numDimensions);
 
-    sample_sums.fill(0);
-    sample_mins.fill(9999999999);
-    sample_maxes.fill(0);
-    sample_means.fill(0);
-    sample_stdevs.fill(0);
+    covarianceMatrix.resize(this->numDimensions*this->numDimensions);
+    correlationMatrix.resize(this->numDimensions*this->numDimensions);
 
-    // dimSums.resize(this->numDimensions);
-    // minimumValues.resize(this->numDimensions);
-    // maximumValues.resize(this->numDimensions);
-    // meanValues.resize(this->numDimensions);
-    // standardDeviations.resize(this->numDimensions);
-    //
-    // covarianceMatrix.resize(this->numDimensions*this->numDimensions);
-    // correlationMatrix.resize(this->numDimensions*this->numDimensions);
-    //
-    // qreal firstVal = *(this->begin);
-    // dimSums.fill(0);
-    // minimumValues.fill(9999999999);
-    // maximumValues.fill(0);
-    // meanValues.fill(0);
-    // standardDeviations.fill(0);
-    //
-    // // Means and combined means
-    // QVector<qreal>::Iterator p;
-    // ElemIndex elem;
-    // qreal x, y;
+    qreal firstVal = *(this->begin);
+    dimSums.fill(0);
+    minimumValues.fill(9999999999);
+    maximumValues.fill(0);
+    meanValues.fill(0);
+    standardDeviations.fill(0);
 
-    for(Sample s : samples)
+    // Means and combined means
+    QVector<qreal>::Iterator p;
+    ElemIndex elem;
+    qreal x, y;
+
+    QVector<qreal> meanXY;
+    meanXY.resize(this->numDimensions*this->numDimensions);
+    meanXY.fill(0);
+    for(elem=0, p=this->begin; p!=this->end; elem++, p+=this->numDimensions)
     {
-        for(int i=0; i<NUM_SAMPLE_AXES; i++)
+        for(int i=0; i<this->numDimensions; i++)
         {
-            long long val = GetSampleAttribByIndex(&s, i);
-            sample_sums[i] += val;
-            sample_mins[i] = std::min((qreal)val,sample_mins[i]);
-            sample_maxes[i] = std::max((qreal)val,sample_maxes[i]);
+            x = *(p+i);
+            dimSums[i] += x;
+            minimumValues[i] = std::min(x,minimumValues[i]);
+            maximumValues[i] = std::max(x,maximumValues[i]);
+
+            for(int j=0; j<this->numDimensions; j++)
+            {
+                y = *(p+j);
+                meanXY[ROWMAJOR_2D(i,j,this->numDimensions)] += x*y;
+            }
         }
     }
 
-    int numSamples = samples.size();
-    for(int i=0; i<NUM_SAMPLE_AXES; i++)
+    // Divide by this->numElements to get mean
+    for(int i=0; i<this->numDimensions; i++)
     {
-        sample_means[i] = sample_sums[i]/numSamples;
-    }
-
-    for(Sample s: samples)
-    {
-        for(int i=0; i<NUM_SAMPLE_AXES; i++)
+        meanValues[i] = dimSums[i] / (qreal)this->numElements;
+        for(int j=0; j<this->numDimensions; j++)
         {
-            long long val = GetSampleAttribByIndex(&s, i);
-            sample_stdevs[i] += (val-sample_means[i])*(val-sample_means[i]);
+            meanXY[ROWMAJOR_2D(i,j,this->numDimensions)] /= (qreal)this->numElements;
         }
     }
 
-    for(int i=0; i<NUM_SAMPLE_AXES; i++)
+    // Covariance = E(XY) - E(X)*E(Y)
+    for(int i=0; i<this->numDimensions; i++)
     {
-        sample_stdevs[i] = sqrt(sample_stdevs[i]/numSamples);
+        for(int j=0; j<this->numDimensions; j++)
+        {
+            covarianceMatrix[ROWMAJOR_2D(i,j,this->numDimensions)] =
+                meanXY[ROWMAJOR_2D(i,j,this->numDimensions)] - meanValues[i]*meanValues[j];
+        }
     }
 
-    //TODO this part was not refactored
+    // Standard deviation of each dim
+    for(elem=0, p=this->begin; p!=this->end; elem++, p+=this->numDimensions)
+    {
+        for(int i=0; i<this->numDimensions; i++)
+        {
+            x = *(p+i);
+            standardDeviations[i] += (x-meanValues[i])*(x-meanValues[i]);
+        }
+    }
 
-    // QVector<qreal> meanXY;
-    // meanXY.resize(this->numDimensions*this->numDimensions);
-    // meanXY.fill(0);
-    // for(elem=0, p=this->begin; p!=this->end; elem++, p+=this->numDimensions)
-    // {
-    //     for(int i=0; i<this->numDimensions; i++)
-    //     {
-    //         x = *(p+i);
-    //         dimSums[i] += x;
-    //         minimumValues[i] = std::min(x,minimumValues[i]);
-    //         maximumValues[i] = std::max(x,maximumValues[i]);
-    //
-    //         for(int j=0; j<this->numDimensions; j++)
-    //         {
-    //             y = *(p+j);
-    //             meanXY[ROWMAJOR_2D(i,j,this->numDimensions)] += x*y;
-    //         }
-    //     }
-    // }
-    //
-    // // Divide by this->numElements to get mean
-    // for(int i=0; i<this->numDimensions; i++)
-    // {
-    //     meanValues[i] = dimSums[i] / (qreal)this->numElements;
-    //     for(int j=0; j<this->numDimensions; j++)
-    //     {
-    //         meanXY[ROWMAJOR_2D(i,j,this->numDimensions)] /= (qreal)this->numElements;
-    //     }
-    // }
-    //
-    // // Covariance = E(XY) - E(X)*E(Y)
-    // for(int i=0; i<this->numDimensions; i++)
-    // {
-    //     for(int j=0; j<this->numDimensions; j++)
-    //     {
-    //         covarianceMatrix[ROWMAJOR_2D(i,j,this->numDimensions)] =
-    //             meanXY[ROWMAJOR_2D(i,j,this->numDimensions)] - meanValues[i]*meanValues[j];
-    //     }
-    // }
-    //
-    // // Standard deviation of each dim
-    // for(elem=0, p=this->begin; p!=this->end; elem++, p+=this->numDimensions)
-    // {
-    //     for(int i=0; i<this->numDimensions; i++)
-    //     {
-    //         x = *(p+i);
-    //         standardDeviations[i] += (x-meanValues[i])*(x-meanValues[i]);
-    //     }
-    // }
-    //
-    // for(int i=0; i<this->numDimensions; i++)
-    // {
-    //     standardDeviations[i] = sqrt(standardDeviations[i]/(qreal)this->numElements);
-    // }
-    //
-    // // Correlation Coeff = cov(xy) / stdev(x)*stdev(y)
-    // for(int i=0; i<this->numDimensions; i++)
-    // {
-    //     for(int j=0; j<this->numDimensions; j++)
-    //     {
-    //         correlationMatrix[ROWMAJOR_2D(i,j,this->numDimensions)] =
-    //                 covarianceMatrix[ROWMAJOR_2D(i,j,this->numDimensions)] /
-    //                 (standardDeviations[i]*standardDeviations[j]);
-    //     }
-    // }
+    for(int i=0; i<this->numDimensions; i++)
+    {
+        standardDeviations[i] = sqrt(standardDeviations[i]/(qreal)this->numElements);
+    }
+
+    // Correlation Coeff = cov(xy) / stdev(x)*stdev(y)
+    for(int i=0; i<this->numDimensions; i++)
+    {
+        for(int j=0; j<this->numDimensions; j++)
+        {
+            correlationMatrix[ROWMAJOR_2D(i,j,this->numDimensions)] =
+                    covarianceMatrix[ROWMAJOR_2D(i,j,this->numDimensions)] /
+                    (standardDeviations[i]*standardDeviations[j]);
+        }
+    }
 }
 
-// void DataObject::constructSortedLists()
-// {
-//     dimSortedLists.resize(this->numDimensions);
-//     for(int d=0; d<this->numDimensions; d++)
-//     {
-//         for(int e=0; e<this->numElements; e++)
-//         {
-//             struct indexedValue di;
-//             di.idx = e;
-//             di.val = at(e,d);
-//             dimSortedLists.at(d).push_back(di);
-//         }
-//         std::sort(dimSortedLists.at(d).begin(),dimSortedLists.at(d).end());
-//     }
-// }
+void DataObject::constructSortedLists()
+{
+    dimSortedLists.resize(this->numDimensions);
+    for(int d=0; d<this->numDimensions; d++)
+    {
+        for(int e=0; e<this->numElements; e++)
+        {
+            struct indexedValue di;
+            di.idx = e;
+            di.val = at(e,d);
+            dimSortedLists.at(d).push_back(di);
+        }
+        std::sort(dimSortedLists.at(d).begin(),dimSortedLists.at(d).end());
+    }
+}
 
 void DataObject::createClusterTree(int dim, METRIC_TYPE m)
 {
     clusterTrees[dim] = new DataClusterTree();
     clusterTrees[dim]->build(this,dim,m);
-qreal distanceHardware(DataObject *d, ElemSet *s1, ElemSet *s2)
-{
-
-    int nodeTopoDepth = d->node->GetTopoTreeDepth()+1;
-    int dseDepth;
-
-    // Vars
-    std::vector<qreal> t1,t2;
-    std::vector<qreal> t1means,t2means;
-    std::vector<qreal> t1stddev,t2stddev;
-
-    t1.resize(nodeTopoDepth,0);
-    t2.resize(nodeTopoDepth,0);
-    t1means.resize(nodeTopoDepth,0);
-    t1stddev.resize(nodeTopoDepth,0);
-    t2means.resize(nodeTopoDepth,0);
-    t2stddev.resize(nodeTopoDepth,0);
-
-    qreal n1 = s1->size();
-    qreal n2 = s2->size();
-
-    ElemSet::iterator it;
-    qreal lat;
-
-    // Collect s1 topo data
-    for(it = s1->begin(); it != s1->end(); it++)
-    {
-        lat = d->samples[*it].latency;
-        dseDepth = d->samples[*it].data_src;
-        // lat = d->at(*it,d->latencyDim);
-        // dseDepth = d->at(*it,d->dataSourceDim);
-        t1[nodeTopoDepth] += lat;
-        t1[dseDepth] += dseDepth;
-    }
-
-    // Collect s2 topo data
-    for(it = s2->begin(); it != s2->end(); it++)
-    {
-        lat = d->samples[*it].latency;
-        dseDepth = d->samples[*it].data_src;
-        // lat = d->at(*it,d->latencyDim);
-        // dseDepth = d->at(*it,d->dataSourceDim);
-        t2[nodeTopoDepth] += lat;
-        t2[dseDepth] += dseDepth;
-    }
-
-    // Compute means
-    for(int i=0; i<nodeTopoDepth; i++)
-    {
-        t1means[i] = t1.at(i) / n1;
-        t2means[i] = t2.at(i) / n2;
-    }
-
-    // Compute standard deviations
-    for(it = s1->begin(); it != s1->end(); it++)
-    {
-        lat = d->samples[*it].latency;
-        dseDepth = d->samples[*it].data_src;
-        // lat = d->at(*it,d->latencyDim);
-        // dseDepth = d->at(*it,d->dataSourceDim);
-        t1stddev[dseDepth] += (lat-t1means.at(dseDepth))*(lat-t1means.at(dseDepth));
-    }
-    for(it = s2->begin(); it != s2->end(); it++)
-    {
-        lat = d->samples[*it].latency;
-        dseDepth = d->samples[*it].data_src;
-        // lat = d->at(*it,d->latencyDim);
-        // dseDepth = d->at(*it,d->dataSourceDim);
-        t2stddev[dseDepth] += (lat-t2means.at(dseDepth))*(lat-t2means.at(dseDepth));
-    }
-    for(int i=0; i<nodeTopoDepth; i++)
-    {
-        t1stddev[i] /= n1;
-        t2stddev[i] /= n2;
-    }
-
-    // Euclidean length of means vector
-    qreal dist = 0;
-    for(int i=0; i<nodeTopoDepth; i++)
-    {
-        dist += (t1means[i]+t2means[i])*(t1means[i]+t2means[i]);
-    }
-    dist = sqrt(dist);
-
-    return dist;
 }
 
