@@ -42,27 +42,29 @@
 #include "dataobject.h"
 #include "hwtopo.h"
 #include "typedefs.h"
+#include "sys-sage.hpp"
 
-class HWTopo;
+//class HWTopo;
+class DataObject;
 
 class ClusterAggregate
 {
 public:
-    virtual void createAggregateFromSamples(DataObject *d, ElemSet *s) = 0;
+    //virtual void createAggregateFromSamples(DataObject *d, ElemSet *s) = 0;
 };
 
 class HardwareClusterAggregate : public ClusterAggregate
 {
 public:
     HardwareClusterAggregate();
-    virtual void createAggregateFromSamples(DataObject *d, ElemSet *s);
+    //virtual void createAggregateFromSamples(DataObject *d, ElemSet *s);
 
     qreal distance(HardwareClusterAggregate *other, METRIC_TYPE m);
     void initFrom(DataObject *d, HardwareClusterAggregate *hcm);
     void combineAggregate(DataObject *d, HardwareClusterAggregate *hcm);
 
-    HWTopo *getTopo() {return topo;}
-    void setTopo(HWTopo *t);
+    Node* getTopo() {return root;}
+    void setTopo(Node *r);
 
     qreal getMetric(METRIC_TYPE t);
 
@@ -73,7 +75,7 @@ public:
     qreal getNUMAImbalance();
 
 private:
-    HWTopo *topo;
+    Node *root;
 
     std::vector<int> depthSamples;
     std::vector<qreal> depthAvgSamples;

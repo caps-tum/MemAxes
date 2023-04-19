@@ -80,7 +80,7 @@ PCVizWidget::PCVizWidget(QWidget *parent)
     this->setMouseTracking(true);
     this->setContextMenuPolicy(Qt::CustomContextMenu);
 
-    connect(this, SIGNAL(customContextMenuRequested(const QPoint &)), 
+    connect(this, SIGNAL(customContextMenuRequested(const QPoint &)),
             this, SLOT(showContextMenu(const QPoint &)));
 }
 
@@ -96,7 +96,8 @@ void PCVizWidget::processData()
     if(dataSet->empty())
         return;
 
-    numDimensions = dataSet->numDimensions;
+    // numDimensions = dataSet->numDimensions;
+    numDimensions = NUM_SAMPLE_AXES;
 
     dimMins.resize(numDimensions);
     dimMaxes.resize(numDimensions);
@@ -198,7 +199,7 @@ bool PCVizWidget::eventFilter(QObject *obj, QEvent *event)
     if (event->type() == QEvent::MouseMove)
     {
         // Dragging to create a selection
-        if(selectionAxis != -1)
+        if(mouseEvent->buttons() && selectionAxis != -1)
         {
             lastSel = clamp((qreal)mousePos.y(),plotBBox.top(),plotBBox.bottom());
 
@@ -336,19 +337,30 @@ void PCVizWidget::calcMinMaxes()
     dimMins.fill(std::numeric_limits<double>::max());
     dimMaxes.fill(std::numeric_limits<double>::min());
 
-    int elem;
-    QVector<qreal>::Iterator p;
-    for(elem=0, p=dataSet->begin; p!=dataSet->end; elem++, p+=numDimensions)
+    for( Sample s : dataSet->samples)
     {
-        if(!dataSet->visible(elem))
+        if(!dataSet->visible(s.sampleId))
             continue;
-
         for(int i=0; i<numDimensions; i++)
         {
-            dimMins[i] = std::min(dimMins[i],*(p+i));
-            dimMaxes[i] = std::max(dimMaxes[i],*(p+i));
+            long long val = dataSet->GetSampleAttribByIndex(&s, i);
+            dimMins[i] = std::min(dimMins[i],(qreal)val);
+            dimMaxes[i] = std::max(dimMaxes[i],(qreal)val);
         }
     }
+    // int elem;
+    // QVector<qreal>::Iterator p;
+    // for(elem=0, p=dataSet->begin; p!=dataSet->end; elem++, p+=numDimensions)
+    // {
+    //     if(!dataSet->visible(elem))
+    //         continue;
+    //
+    //     for(int i=0; i<numDimensions; i++)
+    //     {
+    //         dimMins[i] = std::min(dimMins[i],*(p+i));
+    //         dimMaxes[i] = std::max(dimMaxes[i],*(p+i));
+    //     }
+    // }
 }
 
 void PCVizWidget::calcHistBins()
@@ -358,16 +370,16 @@ void PCVizWidget::calcHistBins()
 
     histMaxVals.fill(0);
 
-    int elem;
-    QVector<qreal>::Iterator p;
-    for(elem=0, p=dataSet->begin; p!=dataSet->end; elem++, p+=numDimensions)
+    for( Sample s : dataSet->samples)
     {
-        if(dataSet->selectionDefined() && !dataSet->selected(elem))
+        if(dataSet->selectionDefined() && !dataSet->selected(s.sampleId))
             continue;
 
         for(int i=0; i<numDimensions; i++)
         {
-            int histBin = floor(scale(*(p+i),dimMins[i],dimMaxes[i],0,numHistBins));
+            long long val = dataSet->GetSampleAttribByIndex(&s, i);
+
+            int histBin = floor(scale(val,dimMins[i],dimMaxes[i],0,numHistBins));
 
             if(histBin >= numHistBins)
                 histBin = numHistBins-1;
@@ -379,12 +391,157 @@ void PCVizWidget::calcHistBins()
         }
     }
 
+    // int elem;
+    // QVector<qreal>::Iterator p;
+    // for(elem=0, p=dataSet->begin; p!=dataSet->end; elem++, p+=numDimensions)
+    // {
+    //     if(dataSet->selectionDefined() && !dataSet->selected(elem))
+    //         continue;
+    //
+    //     for(int i=0; i<numDimensions; i++)
+    //     {
+    //         int histBin = floor(scale(*(p+i),dimMins[i],dimMaxes[i],0,numHistBins));
+    //
+    //         if(histBin >= numHistBins)
+    //             histBin = numHistBins-1;
+    //         if(histBin < 0)
+    //             histBin = 0;
+    //
+    //         histVals[i][histBin] += 1;
+    //         histMaxVals[i] = std::max(histMaxVals[i],histVals[i][histBin]);
+    //     }
+    // }
+
     // Scale hist values to [0,1]
     for(int i=0; i<numDimensions; i++)
         for(int j=0; j<numHistBins; j++)
             histVals[i][j] = scale(histVals[i][j],0,histMaxVals[i],0,1);
 }
 
+<<<<<<< HEAD
+=======
+void PCVizWidget::recalcLines(int dirtyAxis)
+{
+    QVector4D col;
+    QVector2D a, b;
+    int i, axis, nextAxis;//, elem;
+    // QVector<double>::Iterator p;
+
+    if(!processed)
+        return;
+
+    verts.clear();
+    colors.clear();
+
+    QVector4D redVec = QVector4D(255,0,0,255);
+    QColor dataSetColor = colorMap.at(0);
+    qreal Cr,Cg,Cb;
+    dataSetColor.getRgbF(&Cr,&Cg,&Cb);
+    QVector4D dataColor = QVector4D(Cr,Cg,Cb,1);
+
+    for( Sample s : dataSet->samples)
+    {
+        if(!dataSet->visible(s.sampleId))
+        {
+            continue;
+        }
+        else if(dataSet->selected(s.sampleId))
+        {
+            col = redVec;
+            col.setW(selOpacity);
+        }
+        else
+        {
+            col = dataColor;
+            col.setW(unselOpacity);
+        }
+
+        for(i=0; i<numDimensions-1; i++)
+        {
+            if(dirtyAxis != -1  && i != dirtyAxis && i != dirtyAxis-1)
+                continue;
+
+            axis = axesOrder[i];
+            nextAxis = axesOrder[i+1];
+
+            float orig_aVal = dataSet->GetSampleAttribByIndex(&s, axis);
+            float aVal = scale(orig_aVal,dimMins[axis],dimMaxes[axis],0,1);
+            a = QVector2D(axesPositions[axis],aVal);
+
+            float orig_bVal = dataSet->GetSampleAttribByIndex(&s, nextAxis);
+            float bVal = scale(orig_bVal,dimMins[nextAxis],dimMaxes[nextAxis],0,1);
+            b = QVector2D(axesPositions[nextAxis],bVal);
+
+            verts.push_back(a.x());
+            verts.push_back(a.y());
+
+            verts.push_back(b.x());
+            verts.push_back(b.y());
+
+            colors.push_back(col.x());
+            colors.push_back(col.y());
+            colors.push_back(col.z());
+            colors.push_back(col.w());
+
+            colors.push_back(col.x());
+            colors.push_back(col.y());
+            colors.push_back(col.z());
+            colors.push_back(col.w());
+        }
+    }
+    //
+    // for(p=dataSet->begin, elem=0; p!=dataSet->end; p+=numDimensions, elem++)
+    // {
+    //     if(!dataSet->visible(elem))
+    //     {
+    //         continue;
+    //     }
+    //     else if(dataSet->selected(elem))
+    //     {
+    //         col = redVec;
+    //         col.setW(selOpacity);
+    //     }
+    //     else
+    //     {
+    //         col = dataColor;
+    //         col.setW(unselOpacity);
+    //     }
+    //
+    //
+    //     for(i=0; i<numDimensions-1; i++)
+    //     {
+    //         if(dirtyAxis != -1  && i != dirtyAxis && i != dirtyAxis-1)
+    //             continue;
+    //
+    //         axis = axesOrder[i];
+    //         nextAxis = axesOrder[i+1];
+    //
+    //         float aVal = scale(*(p+axis),dimMins[axis],dimMaxes[axis],0,1);
+    //         a = QVector2D(axesPositions[axis],aVal);
+    //
+    //         float bVal = scale(*(p+nextAxis),dimMins[nextAxis],dimMaxes[nextAxis],0,1);
+    //         b = QVector2D(axesPositions[nextAxis],bVal);
+    //
+    //         verts.push_back(a.x());
+    //         verts.push_back(a.y());
+    //
+    //         verts.push_back(b.x());
+    //         verts.push_back(b.y());
+    //
+    //         colors.push_back(col.x());
+    //         colors.push_back(col.y());
+    //         colors.push_back(col.z());
+    //         colors.push_back(col.w());
+    //
+    //         colors.push_back(col.x());
+    //         colors.push_back(col.y());
+    //         colors.push_back(col.z());
+    //         colors.push_back(col.w());
+    //     }
+    // }
+}
+
+>>>>>>> master
 void PCVizWidget::showContextMenu(const QPoint &pos)
 {
     contextMenuMousePos = pos;
@@ -538,7 +695,7 @@ void PCVizWidget::drawQtPainter(QPainter *painter)
 
         painter->drawLine(a,b);
 
-        QString text = dataSet->meta[i];
+        QString text = SampleAxes::SampleAxesNames[i];
         QPointF center = b - QPointF(fm.width(text)/2,15);
         painter->drawText(center,text);
 

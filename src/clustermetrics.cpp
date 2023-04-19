@@ -45,96 +45,96 @@ HardwareClusterAggregate::HardwareClusterAggregate()
 {
 }
 
-void HardwareClusterAggregate::createAggregateFromSamples(DataObject *d, ElemSet *s)
-{
-    // Copy topology from current dataset
-    setTopo(new HWTopo(d->topo));
+// void HardwareClusterAggregate::createAggregateFromSamples(DataObject *d, ElemSet *s)
+// {
+    // // Copy topology from current dataset
+    // setTopo(new HWTopo(d->topo));
 
-    // Set samples to provided ElemSet s
-    topo->collectSamples(d,s);
+    // // Set samples to provided ElemSet s
+    // topo->collectSamples(d,s);
 
-    // Compute means
-    depthSamples.resize(topo->totalDepth+1, 0);
-    depthAvgSamples.resize(topo->totalDepth+1, 0);
-    depthMeans.resize(topo->totalDepth+1, 0);
-    depthStddevs.resize(topo->totalDepth+1, 0);
-    depthImbalances.resize(topo->totalDepth+1, 0);
+    // // Compute means
+    // depthSamples.resize(topo->totalDepth+1, 0);
+    // depthAvgSamples.resize(topo->totalDepth+1, 0);
+    // depthMeans.resize(topo->totalDepth+1, 0);
+    // depthStddevs.resize(topo->totalDepth+1, 0);
+    // depthImbalances.resize(topo->totalDepth+1, 0);
 
-    int cpuDepth = topo->totalDepth;
-    ElemSet::iterator it;
-    for(it = s->begin(); it != s->end(); it++)
-    {
-        // Sum up all cycles
-        ElemIndex elem = *it;
-        int depth = d->at(elem,d->dataSourceDim);
-        qreal cycles = d->at(elem,d->latencyDim);
+    // int cpuDepth = topo->totalDepth;
+    // ElemSet::iterator it;
+    // for(it = s->begin(); it != s->end(); it++)
+    // {
+    //     // Sum up all cycles
+    //     ElemIndex elem = *it;
+    //     int depth = d->at(elem,d->dataSourceDim);
+    //     qreal cycles = d->at(elem,d->latencyDim);
 
-        if(depth < 0)
-            continue;
+    //     if(depth < 0)
+    //         continue;
 
-        depthSamples[depth] = depthSamples.at(depth) + 1;
-        depthMeans[depth] = depthSamples.at(depth) + cycles;
+    //     depthSamples[depth] = depthSamples.at(depth) + 1;
+    //     depthMeans[depth] = depthSamples.at(depth) + cycles;
 
-        depthSamples[cpuDepth] = depthSamples.at(depth) + 1;
-        depthMeans[cpuDepth] = depthMeans.at(cpuDepth) + cycles;
-    }
+    //     depthSamples[cpuDepth] = depthSamples.at(depth) + 1;
+    //     depthMeans[cpuDepth] = depthMeans.at(cpuDepth) + cycles;
+    // }
 
-    for(int i=0; i<topo->totalDepth; i++)
-    {
-        // Divide to get mean
-        if(depthSamples.at(i) == 0) // div by zero
-            depthMeans[i] = 0;
+    // for(int i=0; i<topo->totalDepth; i++)
+    // {
+    //     // Divide to get mean
+    //     if(depthSamples.at(i) == 0) // div by zero
+    //         depthMeans[i] = 0;
 
-        else
-            depthMeans[i] = depthMeans.at(i) / (qreal)depthSamples.at(i);
-    }
+    //     else
+    //         depthMeans[i] = depthMeans.at(i) / (qreal)depthSamples.at(i);
+    // }
 
-    // Compute standard deviations
-    for(it = s->begin(); it != s->end(); it++)
-    {
-        // Sum up squared difference btwn sample and mean
-        ElemIndex elem = *it;
-        int depth = d->at(elem,d->dataSourceDim);
-        qreal cycles = d->at(elem,d->latencyDim);
+    // // Compute standard deviations
+    // for(it = s->begin(); it != s->end(); it++)
+    // {
+    //     // Sum up squared difference btwn sample and mean
+    //     ElemIndex elem = *it;
+    //     int depth = d->at(elem,d->dataSourceDim);
+    //     qreal cycles = d->at(elem,d->latencyDim);
 
-        if(depth < 0)
-            continue;
+    //     if(depth < 0)
+    //         continue;
 
-        depthStddevs[depth] = depthStddevs.at(depth)
-                + (cycles-depthMeans.at(depth))*(cycles-depthMeans.at(depth));
-        depthStddevs[cpuDepth] = depthStddevs.at(cpuDepth)
-                + (cycles-depthMeans.at(cpuDepth))*(cycles-depthMeans.at(cpuDepth));
-    }
-    for(int i=0; i<topo->totalDepth; i++)
-    {
-        // Divide to get standard deviation
-        depthStddevs[i] = sqrt(depthStddevs.at(i) / (qreal)depthSamples.at(i));
-    }
+    //     depthStddevs[depth] = depthStddevs.at(depth)
+    //             + (cycles-depthMeans.at(depth))*(cycles-depthMeans.at(depth));
+    //     depthStddevs[cpuDepth] = depthStddevs.at(cpuDepth)
+    //             + (cycles-depthMeans.at(cpuDepth))*(cycles-depthMeans.at(cpuDepth));
+    // }
+    // for(int i=0; i<topo->totalDepth; i++)
+    // {
+    //     // Divide to get standard deviation
+    //     depthStddevs[i] = sqrt(depthStddevs.at(i) / (qreal)depthSamples.at(i));
+    // }
 
-    // Compute imbalance
-    for(unsigned int i=0; i<topo->hardwareResourceMatrix.size(); i++)
-    {
-        qreal minsam = std::numeric_limits<qreal>::max();
-        qreal maxsam = std::numeric_limits<qreal>::min();
+    // // Compute imbalance
+    // for(unsigned int i=0; i<topo->hardwareResourceMatrix.size(); i++)
+    // {
+    //     qreal minsam = std::numeric_limits<qreal>::max();
+    //     qreal maxsam = std::numeric_limits<qreal>::min();
 
-        qreal numres = topo->hardwareResourceMatrix.at(i).size();
-        depthAvgSamples[i] = depthSamples.at(i) / numres;
-        for(unsigned int r=0; r<numres; r++)
-        {
-            qreal rd_i = (qreal)topo->hardwareResourceMatrix.at(i).at(r)->allSamples.size();
-            qreal m_i = depthAvgSamples[i];
-            qreal sqddiff = (rd_i-m_i)*(rd_i-m_i);
-            maxsam = std::max(sqddiff,maxsam);
-            minsam = std::min(sqddiff,minsam);
-        }
+    //     qreal numres = topo->hardwareResourceMatrix.at(i).size();
+    //     depthAvgSamples[i] = depthSamples.at(i) / numres;
+    //     for(unsigned int r=0; r<numres; r++)
+    //     {
+    //         qreal rd_i = (qreal)topo->hardwareResourceMatrix.at(i).at(r)->allSamples.size();
+    //         qreal m_i = depthAvgSamples[i];
+    //         qreal sqddiff = (rd_i-m_i)*(rd_i-m_i);
+    //         maxsam = std::max(sqddiff,maxsam);
+    //         minsam = std::min(sqddiff,minsam);
+    //     }
 
-        if(depthStddevs.at(i) == 0)
-            depthImbalances[i] = maxsam;
-        else
-            depthImbalances[i] = maxsam / depthStddevs.at(i);
-    }
+    //     if(depthStddevs.at(i) == 0)
+    //         depthImbalances[i] = maxsam;
+    //     else
+    //         depthImbalances[i] = maxsam / depthStddevs.at(i);
+    // }
 
-}
+// }
 
 qreal HardwareClusterAggregate::distance(HardwareClusterAggregate *other, METRIC_TYPE m)
 {
@@ -143,28 +143,28 @@ qreal HardwareClusterAggregate::distance(HardwareClusterAggregate *other, METRIC
 
 void HardwareClusterAggregate::initFrom(DataObject *d, HardwareClusterAggregate *hcm)
 {
-    // Copy topo and set this to it
-    this->setTopo(new HWTopo(hcm->getTopo()));
+    // // Copy topo and set this to it
+    // this->setTopo(new HWTopo(hcm->getTopo()));
 }
 
 void HardwareClusterAggregate::combineAggregate(DataObject *d, HardwareClusterAggregate *hcm)
 {
-    ElemSet thisSamples = topo->getAllSamples();
-    ElemSet hcmSamples = hcm->getTopo()->getAllSamples();
+    // ElemSet thisSamples = topo->getAllSamples();
+    // ElemSet hcmSamples = hcm->getTopo()->getAllSamples();
 
-    thisSamples.insert(hcmSamples.begin(),hcmSamples.end());
+    // thisSamples.insert(hcmSamples.begin(),hcmSamples.end());
 
-    createAggregateFromSamples(d,&thisSamples);
+    // createAggregateFromSamples(d,&thisSamples);
 }
 
-void HardwareClusterAggregate::setTopo(HWTopo *t)
+void HardwareClusterAggregate::setTopo(Node *r)
 {
-    topo = t;
-    depthSamples.resize(topo->totalDepth+1, 0);
-    depthAvgSamples.resize(topo->totalDepth+1, 0);
-    depthMeans.resize(topo->totalDepth+1, 0);
-    depthStddevs.resize(topo->totalDepth+1, 0);
-    depthImbalances.resize(topo->totalDepth+1, 0);
+    // topo = t;
+    // depthSamples.resize(topo->totalDepth+1, 0);
+    // depthAvgSamples.resize(topo->totalDepth+1, 0);
+    // depthMeans.resize(topo->totalDepth+1, 0);
+    // depthStddevs.resize(topo->totalDepth+1, 0);
+    // depthImbalances.resize(topo->totalDepth+1, 0);
 }
 
 qreal HardwareClusterAggregate::getMetric(METRIC_TYPE t)

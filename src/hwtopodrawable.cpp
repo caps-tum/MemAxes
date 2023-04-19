@@ -40,9 +40,9 @@
 
 #include <QPainter>
 
-HWTopoPainter::HWTopoPainter(HWTopo *t)
+HWTopoPainter::HWTopoPainter(Node *r)
 {
-    topo = t;
+    root = r;
     rect = QRectF(0,0,10,10);
 
     dataMode = COLORBY_CYCLES;
@@ -57,43 +57,72 @@ HWTopoPainter::~HWTopoPainter()
 
 void HWTopoPainter::calcMinMaxes()
 {
-    if(topo == NULL)
+    if(root == NULL)
         return;
 
-    RealRange limits;
+       RealRange limits;
     limits.first = 99999999;
     limits.second = 0;
 
-    depthValRanges.resize(topo->totalDepth+1);
+    Node* node = root;
+
+    depthValRanges.resize(node->GetTopoTreeDepth()+1);
     depthValRanges.fill(limits);
 
-    depthTransRanges.resize(topo->totalDepth+1);
+    depthTransRanges.resize(node->GetTopoTreeDepth()+1);
     depthTransRanges.fill(limits);
 
-    for(int r=0; r<topo->totalDepth+1; r++)
+    for(int r=0, i=0; i<node->GetTopoTreeDepth()+1; r++, i++)
     {
-        std::vector<HWNode*> *depthNodes = &topo->hardwareResourceMatrix.at(r);
-        for(unsigned int j=0; j<depthNodes->size(); j++)
+        vector<Component*> componentsAtDepth;
+        node->GetComponentsNLevelsDeeper(&componentsAtDepth, i);
+        // Get min/max for this row
+        for(int j=widthRange[r].first; j<widthRange[r].second; j++)
         {
-            HWNode *node = depthNodes->at(j);
+            Component * c = componentsAtDepth[j];
+            // QMap<DataObject*,SampleSet>*sampleSets = (QMap<DataObject*,SampleSet>*)c->attrib["sampleSets"];
+            // if(!sampleSets->contains(dataSet) )
+            //     continue;
+            // ElemSet &samples = (*sampleSets)[dataSet].selSamples;
+            // int numCycles = (*sampleSets)[dataSet].selCycles;
 
-            qreal val = (dataMode == COLORBY_CYCLES) ?
-                        node->numSelectedCycles
-                        : node->selectedSamples.size();
+            ElemSet samples;
+            int numCycles = 0;
+            int direction;
+            if(c->GetComponentType() == SYS_SAGE_COMPONENT_THREAD)
+            {
+                direction = SYS_SAGE_DATAPATH_INCOMING;
+            }else {
+                direction = SYS_SAGE_DATAPATH_OUTGOING;
+            }
+            vector<DataPath*> dp_vec;
+            c->GetAllDpByType(&dp_vec, SYS_SAGE_MITOS_SAMPLE, direction);
+            for(DataPath* dp : dp_vec) {
+                SampleSet *ss = (SampleSet*)dp->attrib["sample_set"];
+                samples.insert(ss->selSamples.begin(),ss->selSamples.end());
+                numCycles += ss->selCycles;
+            }
 
-            depthValRanges[r].first=0;
-            depthValRanges[r].second=std::max(depthValRanges[r].second,val);
 
-            qreal trans = node->numTransactions;
-            depthTransRanges[r].first=0;
-            depthTransRanges[r].second=std::max(depthTransRanges[r].second,trans);
+            qreal val = (dataMode == COLORBY_CYCLES) ? numCycles : samples.size();
+            //val = (qreal)(*numCycles) / (qreal)samples->size();
+
+            depthValRanges[i].first=0;//min(depthValRanges[i].first,val);
+            depthValRanges[i].second=max(node->GetTopoTreeDepth()+1,val);
+
+            qreal trans = *(int*)(c->attrib["transactions"]);
+            depthTransRanges[i].first=0;//min(depthTransRanges[i].first,trans);
+            depthTransRanges[i].second=max(node->GetTopoTreeDepth()+1,trans);
         }
     }
+
+    needsConstructNodeBoxes = true;
+    needsRepaint = true;
 }
 
 void HWTopoPainter::resize(QRectF r)
 {
-    if(topo == NULL)
+    if(root == NULL)
         return;
 
     rect = r;
@@ -101,34 +130,49 @@ void HWTopoPainter::resize(QRectF r)
     nodeBoxes.clear();
     linkBoxes.clear();
 
-    if(topo == NULL)
-        return;
-
     float nodeMarginX = rect.width() / 140.0f;
     float nodeMarginY = rect.height() / 40.0f;
 
+    int maxTopoDepth = node->GetTopoTreeDepth()+1;
     float deltaX = 0;
-    float deltaY = rect.height() / topo->hardwareResourceMatrix.size();
-
+    //float deltaY = rect.height() / topo->hardwareResourceMatrix.size();
+    float deltaY = rect.height() / maxTopoDepth;
+    
     // Adjust boxes to fill the rect space
-    for(unsigned int i=0; i<topo->hardwareResourceMatrix.size(); i++)
+    for(int i=0; i<maxTopoDepth; i++)
     {
-        deltaX = rect.width() / (float)topo->hardwareResourceMatrix[i].size();
-        for(unsigned int j=0; j<topo->hardwareResourceMatrix[i].size(); j++)
+        vector<Component*> componentsAtDepth;
+        node->GetComponentsNLevelsDeeper(&componentsAtDepth, i);
+        deltaX = rect.width() / (float)componentsAtDepth.size();
+        for(int j=0; j<componentsAtDepth.size(); j++)
         {
             // Create Node Box
             NodeBox nb;
-            nb.node = topo->hardwareResourceMatrix[i][j];
-            nb.box.setRect(rect.left()+(float)j*deltaX,
-                           rect.top()+(float)i*deltaY,
+            nb.component = componentsAtDepth[j];
+            nb.box.setRect(rect.left()+j*deltaX,
+                           rect.top()+i*deltaY,
                            deltaX,
                            deltaY);
 
             // Get value by cycles or samples
-            int numCycles = nb.node->numSelectedCycles;
-            int numSamples = nb.node->selectedSamples.size();
+            int numCycles = 0;
+            int numSamples = 0;
 
-            qreal unscaledval = (dataMode == COLORBY_CYCLES) ? numCycles : numSamples;
+            int direction;
+            if(nb.component->GetComponentType() == SYS_SAGE_COMPONENT_THREAD){
+                direction = SYS_SAGE_DATAPATH_INCOMING;
+            }else {
+                direction = SYS_SAGE_DATAPATH_OUTGOING;
+            }
+            vector<DataPath*> dp_vec;
+            nb.component->GetAllDpByType(&dp_vec, SYS_SAGE_MITOS_SAMPLE, direction);
+            for(DataPath* dp : dp_vec) {
+                SampleSet *ss = (SampleSet*)dp->attrib["sample_set"];
+                numSamples += ss->selSamples.size();
+                numCycles += ss->selCycles;
+            }
+
+            qreal unscaledval = (m == COLORBY_CYCLES) ? numCycles : numSamples;
             nb.val = scale(unscaledval,
                            depthValRanges.at(i).first,
                            depthValRanges.at(i).second,
@@ -139,14 +183,14 @@ void HWTopoPainter::resize(QRectF r)
             else
                 nb.box.adjust(nodeMarginX,nodeMarginY,-nodeMarginX,-nodeMarginY);
 
-            nodeBoxes.push_back(nb);
+            nbout.push_back(nb);
 
             // Create Link Box
             if(i > 0)
             {
                 LinkBox lb;
-                lb.parent = nb.node->parent;
-                lb.child = nb.node;
+                lb.parent = nb.component->GetParent();
+                lb.child = nb.component;
 
                 // scale width by transactions
                 lb.box.setRect(rect.left()+j*deltaX,
@@ -156,16 +200,16 @@ void HWTopoPainter::resize(QRectF r)
 
                 lb.box.adjust(nodeMarginX,-nodeMarginY,-nodeMarginX,0);
 
-                float linkWidth = scale(nb.node->numTransactions,
-                                        depthTransRanges.at(i).first,
-                                        depthTransRanges.at(i).second,
+                float linkWidth = scale(*(int*)(nb.component->attrib["transactions"]),
+                                        transRanges.at(i).first,
+                                        transRanges.at(i).second,
                                         1.0f,
                                         lb.box.width());
                 float deltaWidth = (lb.box.width()-linkWidth)/2.0f;
 
                 lb.box.adjust(deltaWidth,0,-deltaWidth,0);
 
-                linkBoxes.push_back(lb);
+                lbout.push_back(lb);
             }
         }
     }
@@ -186,9 +230,9 @@ void HWTopoPainter::draw(QPainter *painter)
     painter->setPen(QPen(Qt::black));
     for(int b=0; b<nodeBoxes.size(); b++)
     {
-        HWNode *node = nodeBoxes.at(b).node;
+        Component *c = nodeBoxes.at(b).component;
         QRectF box = nodeBoxes.at(b).box;
-        QString text = QString::number(node->id);
+        QString text = QString::number(c->GetId());
 
         // Color by value
         QColor col = valToColor(nodeBoxes.at(b).val,colorMap);
@@ -227,14 +271,14 @@ void HWTopoPainter::draw(QPainter *painter)
     }
 }
 
-HWNode *HWTopoPainter::nodeAtPosition(QPoint p)
+Component *HWTopoPainter::nodeAtPosition(QPoint p)
 {
-    if(topo == NULL)
+    if(root == NULL)
         return NULL;
 
     for(int b=0; b<nodeBoxes.size(); b++)
     {
-        HWNode *node = nodeBoxes.at(b).node;
+        Component *c = nodeBoxes.at(b).component;
         QRectF box = nodeBoxes.at(b).box;
 
         bool containsP = false;
@@ -249,7 +293,7 @@ HWNode *HWTopoPainter::nodeAtPosition(QPoint p)
         }
 
         if(containsP)
-            return node;
+            return c;
     }
 
     return NULL;

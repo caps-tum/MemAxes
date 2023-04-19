@@ -61,35 +61,35 @@ std::vector<DataClusterLeafNode*> DataClusterTree::createWindows(DataObject *d, 
 {
     std::vector<DataClusterLeafNode*> leafNodes;
 
-    IndexList *sortedSamples = d->getSortedList(dim);
+    // IndexList *sortedSamples = d->getSortedList(dim);
 
-    // Create leaf node for every window
-    for(unsigned int s=0; s<sortedSamples->size(); s+=delta)
-    {
-        DataClusterLeafNode *newLeaf = new DataClusterLeafNode();
-        qreal winMin = sortedSamples->at(s).val;
-        qreal winMax = winMin;
-        for(unsigned int sidx=s; sidx<s+winSize; sidx++)
-        {
-            if(sidx >= sortedSamples->size())
-                break;
+    // // Create leaf node for every window
+    // for(unsigned int s=0; s<sortedSamples->size(); s+=delta)
+    // {
+    //     DataClusterLeafNode *newLeaf = new DataClusterLeafNode();
+    //     qreal winMin = sortedSamples->at(s).val;
+    //     qreal winMax = winMin;
+    //     for(unsigned int sidx=s; sidx<s+winSize; sidx++)
+    //     {
+    //         if(sidx >= sortedSamples->size())
+    //             break;
 
-            newLeaf->samples.insert(sortedSamples->at(sidx).idx);
-            winMax = sortedSamples->at(sidx).val;
-        }
+    //         newLeaf->samples.insert(sortedSamples->at(sidx).idx);
+    //         winMax = sortedSamples->at(sidx).val;
+    //     }
 
-        if(newLeaf->samples.empty())
-            break;
+    //     if(newLeaf->samples.empty())
+    //         break;
 
-        newLeaf->setRange(winMin,winMax);
-        leafNodes.push_back(newLeaf);
-    }
+    //     newLeaf->setRange(winMin,winMax);
+    //     leafNodes.push_back(newLeaf);
+    // }
 
-    // merge last two leaves (better to have one bigger than one smaller
-    leafNodes.at(leafNodes.size()-2)->samples.insert(
-                leafNodes.back()->samples.begin(),
-                leafNodes.back()->samples.end());
-    leafNodes.erase(leafNodes.end()-1);
+    // // merge last two leaves (better to have one bigger than one smaller
+    // leafNodes.at(leafNodes.size()-2)->samples.insert(
+    //             leafNodes.back()->samples.begin(),
+    //             leafNodes.back()->samples.end());
+    // leafNodes.erase(leafNodes.end()-1);
 
     return leafNodes;
 }
@@ -97,18 +97,18 @@ std::vector<DataClusterLeafNode*> DataClusterTree::createWindows(DataObject *d, 
 std::vector<DataClusterInternalNode *> DataClusterTree::createInternalFromLeaves(DataObject *d, std::vector<DataClusterLeafNode*> &leafNodes)
 {
     std::vector<DataClusterInternalNode*> levelNodes;
-    for(unsigned int i=0; i<leafNodes.size(); i++)
-    {
-        DataClusterInternalNode *newNode = new DataClusterInternalNode();
-        newNode->aggregate = new HardwareClusterAggregate();
-        newNode->aggregate->createAggregateFromSamples(d,&leafNodes.at(i)->samples);
-        newNode->setRange(leafNodes.at(i)->rangeMin,leafNodes.at(i)->rangeMax);
+    // for(unsigned int i=0; i<leafNodes.size(); i++)
+    // {
+    //     DataClusterInternalNode *newNode = new DataClusterInternalNode();
+    //     newNode->aggregate = new HardwareClusterAggregate();
+    //     //TODO newNode->aggregate->createAggregateFromSamples(d,&leafNodes.at(i)->samples);
+    //     newNode->setRange(leafNodes.at(i)->rangeMin,leafNodes.at(i)->rangeMax);
 
-        leafNodes.at(i)->parent = newNode;
-        newNode->children.push_back(leafNodes.at(i));
+    //     leafNodes.at(i)->parent = newNode;
+    //     newNode->children.push_back(leafNodes.at(i));
 
-        levelNodes.push_back(newNode);
-    }
+    //     levelNodes.push_back(newNode);
+    // }
     return levelNodes;
 }
 

@@ -40,9 +40,13 @@
 #define HWTOPODRAWABLE_H
 
 #include "util.h"
-#include "hwtopo.h"
+// #include "hwtopo.h"
+#include "sys-sage.hpp"
 
 #include <QPair>
+
+class DataObject;
+struct Sample;
 
 enum VizMode
 {
@@ -59,11 +63,11 @@ enum DataMode
 struct NodeBox
 {
     NodeBox() {memset(this,0,sizeof(*this));}
-    NodeBox(HWNode* n,
+    NodeBox(Component* c,
             QRectF b)
-            : node(n),box(b) {}
+            : component(c),box(b) {}
 
-    HWNode* node;
+    Component * component;
     QRectF box;
     qreal val;
 };
@@ -71,13 +75,13 @@ struct NodeBox
 struct LinkBox
 {
     LinkBox() {memset(this,0,sizeof(*this));}
-    LinkBox(HWNode* p,
-            HWNode* c,
+    LinkBox(Component* p,
+            Component* c,
             QRectF b)
             : parent(p),child(c),box(b) {}
 
-    HWNode* parent;
-    HWNode* child;
+    Component* parent;
+    Component* child;
     QRectF box;
     qreal val;
 };
@@ -96,12 +100,14 @@ struct ColoredRect
 class HWTopoPainter
 {
 public:
-    HWTopoPainter(HWTopo *t = NULL);
+    HWTopoPainter(Node *r = NULL);
 
     ~HWTopoPainter();
 
-    HWTopo* getTopo() {return topo;}
-    void setTopo(HWTopo *t) {topo = t;}
+    Node* getTopo() {return root;}
+    void setTopo(Node *r) {root = r;}
+    QVector<Sample>* getSamples() {return samples;}
+    void setSampleArray(QVector<Sample>* s) {samples = s;}
     void setDataMode(DataMode m) {dataMode = m;}
     void setVizMode(VizMode m) {vizMode = m;}
     void setColorMap(ColorMap m) {colorMap = m;}
@@ -112,10 +118,11 @@ public:
     void resize(QRectF r);
     void draw(QPainter *painter);
 
-    HWNode *nodeAtPosition(QPoint p);
+    Component *nodeAtPosition(QPoint p);
 
 private:
-    HWTopo *topo;
+    Node *root;
+    QVector<Sample>* samples;
 
     // Draw specifiers
     QRectF rect;

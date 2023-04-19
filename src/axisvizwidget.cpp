@@ -343,8 +343,13 @@ void AxisVizWidget::mouseReleaseEvent(QMouseEvent *e)
         topoBox *t = &clusterAggregates.at(b);
         if(t->box.contains(e->pos()))
         {
-            ElemSet topoSamples = t->htp.getTopo()->getAllSamples();
-            dataSet->selectSet(topoSamples);
+            //ElemSet topoSamples = t->htp.getTopo()->getAllSamples();
+            ElemSet selSet;
+            for(Sample s: *(t->htp.getSamples()))
+            {
+                selSet.insert(s.sampleId);
+            }
+            dataSet->selectSet(selSet);
             emit selectionChangedSig();
             return;
         }
@@ -394,13 +399,14 @@ void AxisVizWidget::calcMinMax()
     dimMax = std::numeric_limits<double>::min();
 
     // Get min and max of visible elements in this dimension
-    for(int elem=0; elem<dataSet->numElements; elem++)
+    for(Sample s: dataSet->samples)
     {
-        if(!dataSet->visible(elem))
+        if(!dataSet->visible(s.sampleId))
             continue;
 
-        dimMin = std::min(dimMin,dataSet->at(elem,dim));
-        dimMax = std::max(dimMax,dataSet->at(elem,dim));
+        long long val = dataSet->GetSampleAttribByIndex(&s, dim);
+        dimMin = std::min(dimMin,(qreal)val);
+        dimMax = std::max(dimMax,(qreal)val);
     }
 }
 
@@ -413,15 +419,16 @@ void AxisVizWidget::calcHistBins()
     // Gather maximum sized bin along the way
     histMax = 0;
     histVals.resize(numHistBins,0);
-    for(int elem=0; elem<dataSet->numElements; elem++)
+
+    for( Sample s : dataSet->samples)
     {
-        if(dataSet->selectionDefined() && !dataSet->selected(elem))
+        if(dataSet->selectionDefined() && !dataSet->selected(s.sampleId))
             continue;
 
-        int histBin = getHistBin(dataSet->at(elem,dim),
-                                 dataSet->minAt(dim),
-                                 dataSet->maxAt(dim),
-                                 numHistBins);
+        int histBin = getHistBin(dataSet->GetSampleAttribByIndex(&s, dim),
+                                dimMin,
+                                dimMax,
+                                numHistBins);
 
         histVals[histBin] += 1;
         histMax = std::max(histMax,histVals.at(histBin));
@@ -461,53 +468,54 @@ void AxisVizWidget::gatherMetricBins()
     bins.resize(numMetricBins);
     binAggs.resize(numMetricBins);
 
-    for(int elem=0; elem<dataSet->numElements; elem++)
+    for( Sample s : dataSet->samples)
     {
-        int metricBin = getHistBin(dataSet->at(elem,dim),
-                                   dataSet->minAt(dim),
-                                   dataSet->maxAt(dim),
+        int metricBin = getHistBin(dataSet->GetSampleAttribByIndex(&s, dim),
+                                   dimMin,
+                                   dimMax,
                                    numMetricBins);
-        bins[metricBin].insert(elem);
+        bins[metricBin].insert(s.sampleId);
     }
 
-
-    for(int b=0; b<numMetricBins; b++)
-    {
-        binAggs[b].createAggregateFromSamples(dataSet,&bins.at(b));
-    }
+//TODO add this
+    // for(int b=0; b<numMetricBins; b++)
+    // {
+    //     binAggs[b].createAggregateFromSamples(dataSet,&bins.at(b));
+    // }
 }
 
 void AxisVizWidget::gatherClusters()
 {
-    if(!processed)
-        return;
+    //TODO
+    // if(!processed)
+    //     return;
 
-    clusterAggregates.clear();
+    // clusterAggregates.clear();
 
-    DataClusterTree *tree = dataSet->clusterTrees.at(dim);
+    // DataClusterTree *tree = dataSet->clusterTrees.at(dim);
 
-    if(!tree)
-        dataSet->createClusterTree(dim,metric_type);
-    tree = dataSet->clusterTrees.at(dim);
+    // if(!tree)
+    //     dataSet->createClusterTree(dim,metric_type);
+    // tree = dataSet->clusterTrees.at(dim);
 
-    std::vector<DataClusterNode*> depthNodes = tree->getNodesAtDepth(clusterDepth);
+    // std::vector<DataClusterNode*> depthNodes = tree->getNodesAtDepth(clusterDepth);
 
-    for(unsigned int i=0; i<depthNodes.size(); i++)
-    {
-        // getNodesAtDepth only returns internal nodes
-        DataClusterInternalNode *inode = (DataClusterInternalNode*)depthNodes.at(i);
+    // for(unsigned int i=0; i<depthNodes.size(); i++)
+    // {
+    //     // getNodesAtDepth only returns internal nodes
+    //     DataClusterInternalNode *inode = (DataClusterInternalNode*)depthNodes.at(i);
 
-        // Create topo box
-        topoBox tb;
-        tb.agg = (HardwareClusterAggregate*)inode->aggregate;
-        tb.htp = HWTopoPainter(tb.agg->getTopo());
-        tb.htp.calcMinMaxes();
-        tb.minRange = inode->rangeMin;
-        tb.maxRange = inode->rangeMax;
-        tb.drawGlyph = false;
+    //     // Create topo box
+    //     topoBox tb;
+    //     tb.agg = (HardwareClusterAggregate*)inode->aggregate;
+    //     tb.htp = HWTopoPainter(tb.agg->getTopo());
+    //     tb.htp.calcMinMaxes();
+    //     tb.minRange = inode->rangeMin;
+    //     tb.maxRange = inode->rangeMax;
+    //     tb.drawGlyph = false;
 
-        clusterAggregates.push_back(tb);
-    }
+    //     clusterAggregates.push_back(tb);
+    // }
 }
 
 void AxisVizWidget::resizeClusters()
@@ -521,7 +529,7 @@ void AxisVizWidget::resizeClusters()
 
         // Make box at center of range
         qreal topoWidth = 20;
-        qreal drawLeft = scale(tb->minRange,dataSet->minAt(dim),dataSet->maxAt(dim),plotBBox.left(),plotBBox.right());
+        qreal drawLeft = scale(tb->minRange,dimMin,dimMax,plotBBox.left(),plotBBox.right());
         tb->box = QRect(drawLeft,plotBBox.bottom()-topoWidth/2,
                         topoWidth,topoWidth);
 

@@ -51,25 +51,26 @@ ClusterTreeVizWidget::ClusterTreeVizWidget(QWidget *parent)
 
 void ClusterTreeVizWidget::gatherPainters()
 {
-    currentHwTopoPainters.clear();
+    //TODO
+    // currentHwTopoPainters.clear();
 
-    DataClusterTree *tree = dataSet->clusterTrees.at(clusterIndex);
+    // DataClusterTree *tree = dataSet->clusterTrees.at(clusterIndex);
 
-    std::vector<DataClusterNode*> depthNodes = tree->getNodesAtDepth(clusterDepth);
+    // std::vector<DataClusterNode*> depthNodes = tree->getNodesAtDepth(clusterDepth);
 
-    for(unsigned int i=0; i<depthNodes.size(); i++)
-    {
-        // getNodesAtDepth only returns internal nodes
-        DataClusterInternalNode *inode = (DataClusterInternalNode*)depthNodes.at(i);
+    // for(unsigned int i=0; i<depthNodes.size(); i++)
+    // {
+    //     // getNodesAtDepth only returns internal nodes
+    //     DataClusterInternalNode *inode = (DataClusterInternalNode*)depthNodes.at(i);
 
-        // we're assuming hardware cluster metrics (for drawing aggregates)
-        HardwareClusterAggregate *met = (HardwareClusterAggregate*)inode->aggregate;
-        HWTopoPainter htp(met->getTopo());
+    //     // we're assuming hardware cluster metrics (for drawing aggregates)
+    //     HardwareClusterAggregate *met = (HardwareClusterAggregate*)inode->aggregate;
+    //     HWTopoPainter htp(met->getTopo());
 
-        // prepare
-        htp.calcMinMaxes();
-        currentHwTopoPainters.push_back(htp);
-    }
+    //     // prepare
+    //     htp.calcMinMaxes();
+    //     currentHwTopoPainters.push_back(htp);
+    // }
 }
 
 void ClusterTreeVizWidget::resizeTopoPainters()
@@ -90,8 +91,15 @@ void ClusterTreeVizWidget::mouseReleaseEvent(QMouseEvent *e)
 {
     QPoint pos = e->pos();
     int whichBox = floor((qreal)pos.y() / boxSize);
-    HWTopo *t = currentHwTopoPainters.at(whichBox).getTopo();
-    ElemSet topoSamples = t->getAllSamples();
+    Component *c = currentHwTopoPainters.at(whichBox).getTopo();
+    //ElemSet topoSamples = c->getAllSamples();
+    //TODO was this meant to get all samples or all samples of a component?
+    ElemSet topoSamples;
+    vector<DataPath*> dp_vec;
+    c->GetAllDpByType(&dp_vec, SYS_SAGE_MITOS_SAMPLE, SYS_SAGE_DATAPATH_INCOMING | SYS_SAGE_DATAPATH_OUTGOING);
+    for(DataPath* dp : dp_vec) {
+        topoSamples.insert(((SampleSet*)dp->attrib["sample_set"])->totSamples.begin(), ((SampleSet*)dp->attrib["sample_set"])->totSamples.end());
+    }
 
     dataSet->selectSet(topoSamples);
 

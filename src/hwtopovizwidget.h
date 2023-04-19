@@ -41,11 +41,61 @@
 
 #include "vizwidget.h"
 #include "hwtopodrawable.h"
+#include "sys-sage.hpp"
 
 #include <QMouseEvent>
 #include <QPair>
 #include <QXmlStreamReader>
 #include <QToolTip>
+
+// enum VizMode
+// {
+//     ICICLE = 0,
+//     SUNBURST
+// };
+
+// enum DataMode
+// {
+//     COLORBY_SAMPLES = 0,
+//     COLORBY_CYCLES
+// };
+
+// struct NodeBox
+// {
+//     NodeBox() {memset(this,0,sizeof(*this));}
+//     NodeBox(Component* c,
+//             QRectF b)
+//             : component(c),box(b) {}
+
+//     Component* component;
+//     QRectF box;
+//     qreal val;
+// };
+
+// struct LinkBox
+// {
+//     LinkBox() {memset(this,0,sizeof(*this));}
+//     LinkBox(Component* p,
+//             Component* c,
+//             QRectF b)
+//             : parent(p),child(c),box(b) {}
+
+//     Component* parent;
+//     Component* child;
+//     QRectF box;
+//     qreal val;
+// };
+
+// struct ColoredRect
+// {
+//     ColoredRect() {memset(this,0,sizeof(*this));}
+//     ColoredRect(QColor c,
+//             QRectF b)
+//             : color(c),box(b) {}
+
+//     QColor color;
+//     QRectF box;
+// };
 
 class HWTopoVizWidget : public VizWidget
 {
@@ -74,7 +124,16 @@ public slots:
     void setVizModeSunburst(bool on) { if(on) { hwPainter->setVizMode(SUNBURST); selectionChangedSlot(); } }
 
 private:
-    void selectSamplesWithinNode(HWNode *lvl);
+    void selectSamplesWithinNode(Component *lvl);
+    // void calcMinMaxes();
+    // void constructNodeBoxes(QRectF rect,
+    //                         Node *node,
+    //                         QVector<RealRange> &valRanges,
+    //                         QVector<RealRange> &transRanges, DataMode m,
+    //                         QVector<NodeBox> &nbout,
+    //                         QVector<LinkBox> &lbout);
+    // Component* nodeAtPosition(QPoint p);
+    // void selectSamplesWithinNode(Component *lvl);
 
 private:
     HWTopoPainter *hwPainter;
