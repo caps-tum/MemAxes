@@ -20,6 +20,7 @@ set(SOURCES
   hwtopo.cpp
   main.cpp
   mainwindow.cpp
+  musa-parser.cpp
   hwtopovizwidget.cpp
   pcvizwidget.cpp
   parseUtil.cpp
@@ -34,6 +35,7 @@ set(HEADERS
   dataobject.h
   hwtopo.h
   mainwindow.h
+  musa-parser.h
   hwtopovizwidget.h
   pcvizwidget.h
   parseUtil.h
