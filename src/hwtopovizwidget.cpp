@@ -41,6 +41,7 @@
 #include <iostream>
 #include <cmath>
 
+
 using namespace std;
 
 HWTopoVizWidget::HWTopoVizWidget(QWidget *parent) :
@@ -53,6 +54,10 @@ HWTopoVizWidget::HWTopoVizWidget(QWidget *parent) :
                                 QColor(240,59 ,32 ),
                                 256);
 
+    connectionColor = gradientColorMap(QColor(177,255,168),
+                                QColor(219,128 ,0 ),
+                                256);
+
     this->installEventFilter(this);
     setMouseTracking(true);
 }
@@ -60,7 +65,9 @@ HWTopoVizWidget::HWTopoVizWidget(QWidget *parent) :
 void HWTopoVizWidget::frameUpdate()
 {
     QRectF drawBox = this->rect();
-    drawBox.adjust(margin,margin,-margin,-margin);
+    float diagonal = sqrt(drawBox.width() * drawBox.width() + drawBox.height() * drawBox.height());
+    float scaledMargin = margin * diagonal / 800;
+    drawBox.adjust(scaledMargin,scaledMargin,-scaledMargin,-scaledMargin);
 
     if(needsCalcMinMaxes)
     {
@@ -161,7 +168,8 @@ void HWTopoVizWidget::drawTopo(QPainter *painter, QRectF rect, ColorMap &cm, QVe
     for(int b=0; b<lb.size(); b++)
     {
         QRectF box = lb[b].box;
-
+        
+        
         if(vizMode == SUNBURST)
         {
             QVector<QPointF> segmentPoly = rectToRadialSegment(box,rect);
@@ -395,9 +403,17 @@ void HWTopoVizWidget::constructNodeBoxes(QRectF rect,
 
             if(i==0)
                 nb.box.adjust(0,0,0,-nodeMarginY);
-            else
-                nb.box.adjust(nodeMarginX,nodeMarginY,-nodeMarginX,-nodeMarginY);
+            else{
+                float xOffset = nodeMarginX;
+                if(deltaX - 2.f * xOffset < 10.f)xOffset = (deltaX - 10) / 2.;
+                if(xOffset < .5f) xOffset = .5f;
 
+                float yOffset = nodeMarginY;
+                if(deltaY - 2.f * yOffset < 10.f)yOffset = (deltaY - 10) / 2.;
+                if(yOffset < 1.f) yOffset = 1.f;
+                
+                nb.box.adjust(xOffset,yOffset,-xOffset,0.);
+            }
             nbout.push_back(nb);
 
             // Create Link Box
@@ -413,7 +429,7 @@ void HWTopoVizWidget::constructNodeBoxes(QRectF rect,
                                deltaX,
                                nodeMarginY);
 
-                lb.box.adjust(nodeMarginX,-nodeMarginY,-nodeMarginX,0);
+                lb.box.adjust(nodeMarginX,0.,-nodeMarginX,0);
 
                 float linkWidth = scale(*(int*)(nb.component->attrib["transactions"]),
                                         transRanges.at(i).first,

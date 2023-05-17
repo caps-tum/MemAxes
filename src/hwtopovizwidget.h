@@ -146,6 +146,7 @@ private:
     DataMode dataMode;
     VizMode vizMode;
     ColorMap colorMap;
+    ColorMap connectionColor;
 
     IntRange depthRange;
     QVector<IntRange> widthRange;

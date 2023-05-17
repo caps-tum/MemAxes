@@ -120,7 +120,7 @@ void VizWidget::paintEvent(QPaintEvent *event)
     painter.end();
 
     // show fps
-    if(0)
+    if(false)
     {
         frameElapsed = frameTimer.nsecsElapsed();
         double seconds = (double)frameElapsed * 1e-9;
