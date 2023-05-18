@@ -78,7 +78,9 @@ public slots:
     void selectionChangedSlot();
     void visibilityChangedSlot();
     int loadData();
+    int loadDataIBS();
     int selectDataDirectory();
+    int selectDirectory(QString *dest, QString directory_name);
     void showSelectedOnly();
     void showAll();
     void hideSelected();
@@ -104,6 +106,8 @@ private:
     //VolumeVizWidget *volumeVizWidget;
 
     QString dataDir;
+    QString fetchDataDir;
+    QString opDataDir;
     DataObject *dataSet;
     console *con;
 };

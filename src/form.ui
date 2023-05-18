@@ -528,6 +528,7 @@
      <string>File</string>
     </property>
     <addaction name="actionImport_Data"/>
+    <addaction name="actionImport_Data_IBS"/>
    </widget>
    <addaction name="menuFile"/>
   </widget>
@@ -542,7 +543,12 @@
   <widget class="QStatusBar" name="statusBar"/>
   <action name="actionImport_Data">
    <property name="text">
-    <string>Load Data</string>
+    <string>Load Mitos Data</string>
+   </property>
+  </action>
+  <action name="actionImport_Data_IBS">
+   <property name="text">
+    <string>Load IBS Data</string>
    </property>
   </action>
   <action name="actionImport_Source">

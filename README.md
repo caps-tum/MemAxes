@@ -20,7 +20,7 @@ build Qt5.
 ## Building
 
 1. Make sure that Qt5 and VTK are installed, and add their install
-   locations to the `CMAKE_PREFIX_PATH` environment variable.
+   locations to the `CMAKE_PREFIX_PATH` environment variable. Ensure that Qt5OpenGL is installed.
 
 2. Run the following commands from the root of the MemAxes source:
    ```

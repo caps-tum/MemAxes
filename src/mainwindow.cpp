@@ -41,6 +41,7 @@
 
 #include <unistd.h>
 #include <iostream>
+#include <sys/stat.h>
 using namespace std;
 
 #include <QTimer>
@@ -81,6 +82,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
     // File buttons
     connect(ui->actionImport_Data, SIGNAL(triggered()),this,SLOT(loadData()));
+    connect(ui->actionImport_Data_IBS, SIGNAL(triggered()),this,SLOT(loadDataIBS()));
 
     // Selection mode
     connect(ui->selectModeXOR, SIGNAL(toggled(bool)), this, SLOT(setSelectModeXOR(bool)));
@@ -217,8 +219,14 @@ void errdiag(QString str)
         errmsg.exec();
 }
 
+bool directoryExists(QString dir){
+    struct stat sb;
+    return stat(dir.toLocal8Bit().data(), &sb);
+}
+
 int MainWindow::loadData()
 {
+    
     int err = 0;
     err = selectDataDirectory();
     if(err != 0)
@@ -250,6 +258,48 @@ int MainWindow::loadData()
     return 0;
 }
 
+int MainWindow::loadDataIBS()
+{
+    con->append("it started");
+    int err = 0;
+    err = selectDirectory(&fetchDataDir, "fetch data");
+    if(err != 0)
+        return err;
+
+    err = selectDirectory(&opDataDir, "op data");
+    if(err != 0)
+        return err;
+
+    
+
+    QString fetchSourceDir(fetchDataDir+QString("/src"));
+    codeViz->setSourceDir(fetchSourceDir);
+    QString fetchTopoDir(fetchDataDir+QString("/hardware.xml"));
+    err = dataSet->loadHardwareTopology(fetchTopoDir);
+    if(err != 0)
+    {
+        errdiag("Error loading hardware: "+fetchTopoDir);
+        return err;
+    }
+    //QString dataSetDir(dataDir+QString("/data/samples.out"));
+    QString dataSetDir(fetchDataDir+QString("/data/samples.csv"));
+    err = dataSet->loadData(dataSetDir);
+    if(err != 0)
+    {
+        errdiag("Error loading dataset: "+dataSetDir);
+        return err;
+    }
+    for(int i=0; i<vizWidgets.size(); i++)
+    {
+        vizWidgets[i]->processData();
+        vizWidgets[i]->update();
+    }
+    visibilityChangedSlot();
+    return 0;
+}
+
+
+
 int MainWindow::selectDataDirectory()
 {
     dataDir = QFileDialog::getExistingDirectory(this,
@@ -261,6 +311,20 @@ int MainWindow::selectDataDirectory()
         return -1;
 
     con->append("Selected Data Directory : "+dataDir);
+
+    return 0;
+}
+
+int MainWindow::selectDirectory(QString *dest, QString directory_name){
+    *dest = QFileDialog::getExistingDirectory(this,
+                                                  tr(("Select " + directory_name + " directory").toLocal8Bit().data()),
+                                                  "/Users/chai/Sources/MemAxes/example_data/",
+                                                  QFileDialog::ShowDirsOnly
+                                                  | QFileDialog::DontResolveSymlinks);
+    if((*dest).isNull())
+        return -1;
+
+    con->append("Selected " + directory_name + " Directory : " + dest);
 
     return 0;
 }

@@ -74,8 +74,17 @@ CodeViz::~CodeViz()
     closeAll();
 }
 
+QString filenameFromPath(QString path){
+    for(int i = 0; i < path.length(); i++){
+        if(path.at(path.length() - 1 - i) == '/')return path.right(i);
+    }
+    return path;
+}
+
 int CodeViz::getFileID(QString name)
 {
+    name = filenameFromPath(name);
+
     for(int i=0; i<sourceBlocks.size(); i++)
     {
         if(sourceBlocks[i].name == name)
@@ -159,10 +168,10 @@ void CodeViz::processData()
     }
 
     // Sort based on value
-    qSort(sourceBlocks.begin(),sourceBlocks.end());
+    std::sort(sourceBlocks.begin(),sourceBlocks.end());
 
     for(int j=0; j<sourceBlocks.size(); j++)
-        qSort(sourceBlocks[j].lineBlocks.begin(),sourceBlocks[j].lineBlocks.end());
+        std::sort(sourceBlocks[j].lineBlocks.begin(),sourceBlocks[j].lineBlocks.end());
 
     emit sourceFileSelected(sourceBlocks[0].file);
     emit sourceLineSelected(sourceBlocks[0].lineBlocks[0].line);
