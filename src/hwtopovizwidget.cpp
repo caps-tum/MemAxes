@@ -54,8 +54,8 @@ HWTopoVizWidget::HWTopoVizWidget(QWidget *parent) :
                                 QColor(240,59 ,32 ),
                                 256);
 
-    connectionColor = gradientColorMap(QColor(177,255,168),
-                                QColor(219,128 ,0 ),
+    connectionColor = gradientColorMap(QColor(255,0,0),
+                                QColor(0,0 ,0 ),
                                 256);
 
     this->installEventFilter(this);
@@ -144,8 +144,30 @@ void HWTopoVizWidget::drawTopo(QPainter *painter, QRectF rect, ColorMap &cm, QVe
         QRectF box = nb.at(b).box;
         QString text = QString::number(c->GetId());
 
+        int numCycles = 0;
+        int numSamples = 0;
+
+        ElemSet samples;
+        int direction;
+        if(c->GetComponentType() == SYS_SAGE_COMPONENT_THREAD)
+        {
+            direction = SYS_SAGE_DATAPATH_INCOMING;
+        }else {
+            direction = SYS_SAGE_DATAPATH_OUTGOING;
+        }
+        vector<DataPath*> dp_vec;
+        c->GetAllDpByType(&dp_vec, SYS_SAGE_MITOS_SAMPLE, direction);
+        for(DataPath* dp : dp_vec) {
+            SampleSet *ss = (SampleSet*)dp->attrib["sample_set"];
+            numSamples += ss->selSamples.size();
+            numCycles += ss->selCycles;
+        }
+
+
+
         // Color by value
         QColor col = valToColor(nb.at(b).val,cm);
+        if(numSamples == 0)col = col.blue();
         painter->setBrush(col);
 
         // Draw rect (radial or regular)
@@ -168,6 +190,9 @@ void HWTopoVizWidget::drawTopo(QPainter *painter, QRectF rect, ColorMap &cm, QVe
     for(int b=0; b<lb.size(); b++)
     {
         QRectF box = lb[b].box;
+
+        QColor col = valToColor(nb.at(b).val,connectionColor);
+        painter->setBrush(col);
         
         
         if(vizMode == SUNBURST)
@@ -242,7 +267,10 @@ void HWTopoVizWidget::mouseMoveEvent(QMouseEvent* e)
             direction = SYS_SAGE_DATAPATH_OUTGOING;
         }
         vector<DataPath*> dp_vec;
+        
         c->GetAllDpByType(&dp_vec, SYS_SAGE_MITOS_SAMPLE, direction);
+
+        label += "dp_vec size: " + QString::number(dp_vec.size()) + " number datapaths: " + QString::number(c->GetDataPaths(direction)->size()) + "\n";
         for(DataPath* dp : dp_vec) {
             SampleSet *ss = (SampleSet*)dp->attrib["sample_set"];
             numSamples += ss->selSamples.size();
@@ -423,7 +451,7 @@ void HWTopoVizWidget::constructNodeBoxes(QRectF rect,
                 lb.parent = nb.component->GetParent();
                 lb.child = nb.component;
 
-                // scale width by transactions
+                
                 lb.box.setRect(rect.left()+j*deltaX,
                                rect.top()+i*deltaY,
                                deltaX,
@@ -431,11 +459,18 @@ void HWTopoVizWidget::constructNodeBoxes(QRectF rect,
 
                 lb.box.adjust(nodeMarginX,0.,-nodeMarginX,0);
 
+                // scale width by transactions
                 float linkWidth = scale(*(int*)(nb.component->attrib["transactions"]),
                                         transRanges.at(i).first,
                                         transRanges.at(i).second,
                                         1.0f,
                                         lb.box.width());
+
+                lb.val = scale(*(int*)(nb.component->attrib["transactions"]),
+                                        transRanges.at(i).first,
+                                        transRanges.at(i).second,
+                                        0.0f,
+                                        1.0f);
                 float deltaWidth = (lb.box.width()-linkWidth)/2.0f;
 
                 lb.box.adjust(deltaWidth,0,-deltaWidth,0);

@@ -258,6 +258,8 @@ int MainWindow::loadData()
     return 0;
 }
 
+
+
 int MainWindow::loadDataIBS()
 {
     con->append("it started");
@@ -275,7 +277,7 @@ int MainWindow::loadDataIBS()
     QString fetchSourceDir(fetchDataDir+QString("/src"));
     codeViz->setSourceDir(fetchSourceDir);
     QString fetchTopoDir(fetchDataDir+QString("/hardware.xml"));
-    err = dataSet->loadHardwareTopology(fetchTopoDir);
+    err = dataSet->loadHardwareTopologyIBS(fetchTopoDir);
     if(err != 0)
     {
         errdiag("Error loading hardware: "+fetchTopoDir);

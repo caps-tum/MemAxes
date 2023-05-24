@@ -179,6 +179,8 @@ public:
     int loadData(QString filename);
     int loadHardwareTopology(QString filename);
 
+    int loadHardwareTopologyIBS(QString filename);
+
     void selectionChanged() { collectTopoSamples(); }
     void visibilityChanged() { collectTopoSamples(); }
 

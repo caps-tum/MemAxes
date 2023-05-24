@@ -79,6 +79,26 @@ int DataObject::loadHardwareTopology(QString filename)
     return err;
 }
 
+int DataObject::loadHardwareTopologyIBS(QString filename)
+{
+    node = new Node(0);
+    int err = parseHwlocOutput(node, filename.toUtf8().constData()); //adds topo to a next node
+
+    //TODO temporary CPU
+    //cpu = (Chip*)(node->GetChild(1));
+
+    //create empty metadata items "sampleSets" and "transactions" for each Compoenent
+    vector<Component*> allComponents;
+    node->GetSubtreeNodeList(&allComponents);
+
+    for(int i=0; i<allComponents.size(); i++)
+    {
+        // allComponents[i]->attrib["sampleSets"] = (void*) new QMap<DataObject*,SampleSet>();
+        allComponents[i]->attrib["transactions"] = (void*) new int();
+    }
+    return err;
+}
+
 int DataObject::loadData(QString filename)
 {
     int err = parseCSVFile(filename);
@@ -597,7 +617,7 @@ void DataObject::collectTopoSamples()
 }
 
 int DataObject::DecodeDataSource(QString data_src_str)
-{ qDebug( "dataObject 22" );
+{ //qDebug( "dataObject 22" );
     if(data_src_str == "L1")
         return 1;
     else if(data_src_str == "LFB")
@@ -676,13 +696,13 @@ int DataObject::parseCSVFile(QString dataFileName)
 
         Sample s;
         s.sampleId = elemid;
-        s.sourceUid = createUniqueID(sourceVec,lineValues[header.indexOf("source")]);
-        s.source = lineValues[header.indexOf("source")];
-        s.line = lineValues[header.indexOf("line")].toLongLong();
+        s.sourceUid = createUniqueID(sourceVec,lineValues[header.indexOf("source")]); 
+        s.source = lineValues[header.indexOf("source")]; // source file absolute path
+        s.line = lineValues[header.indexOf("line")].toLongLong(); // line in source file
         s.instructionUid = createUniqueID(instrVec,lineValues[header.indexOf("instruction")]);
-        s.instruction = lineValues[header.indexOf("instruction")];
+        s.instruction = lineValues[header.indexOf("instruction")]; //instruction type
         s.bytes = lineValues[header.indexOf("bytes")].toLongLong();
-        s.ip = lineValues[header.indexOf("ip")].toLongLong();
+        s.ip = lineValues[header.indexOf("ip")].toLongLong(); // instruction pointer
         s.variableUid = createUniqueID(varVec,lineValues[header.indexOf("variable")]);
         s.variable = lineValues[header.indexOf("variable")];
         s.buffer_size = lineValues[header.indexOf("buffer_size")].toLongLong();
@@ -697,18 +717,36 @@ int DataObject::parseCSVFile(QString dataFileName)
         s.cpu = lineValues[header.indexOf("cpu")].toInt();
         s.latency = lineValues[header.indexOf("latency")].toLongLong();
         //s.data_src = dseDepth(lineValues[header.indexOf("data_src")].toInt(NULL,10));
+        
         s.data_src = DecodeDataSource(lineValues[header.indexOf("level")]);
+        
+        //IBS data src
+        
+        if(s.data_src == -1 && header.indexOf("ibs_dc_miss") >= 0){
+            if(lineValues[header.indexOf("ibs_dc_miss")].toInt() == 1){
+                s.data_src = 4; // cache miss
+            }else if(lineValues[header.indexOf("ibs_l2_miss")].toInt() == 1){
+                s.data_src = 3; // L3 hit (not really, L2 request could have been triggered by other operation)
+            }else s.data_src = 2; // no L2 miss -> no L1 hit and no L2 request or L2 hit
+        }
+        
+        
+
         s.visible = VISIBLE;
         samples.push_back(s);
 
         //add samples as DataPath pointers
         Component * compTarget = node->FindSubcomponentById(s.cpu, SYS_SAGE_COMPONENT_THREAD);
-        Component * compSrc = compTarget;//connect with the right memory/cache
+        Component * compSrc = compTarget;
+        //connect with the right memory/cache
         while(compSrc != NULL && s.data_src != -1){
             compSrc = compSrc->GetParent();
             if(s.data_src == 1
                 && compSrc->GetComponentType() == SYS_SAGE_COMPONENT_CACHE
-                && ((Cache*)compSrc)->GetCacheLevel()==1) break;//L1
+                && ((Cache*)compSrc)->GetCacheLevel()==1) {
+                        qDebug("creating L1 cache datapath");
+                        break;//L1
+                    }
             else if(s.data_src == 2
                 && compSrc->GetComponentType() == SYS_SAGE_COMPONENT_CACHE
                 && ((Cache*)compSrc)->GetCacheLevel()==2) break;//L2
