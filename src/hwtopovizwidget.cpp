@@ -137,6 +137,8 @@ void HWTopoVizWidget::visibilityChangedSlot()
 
 void HWTopoVizWidget::drawTopo(QPainter *painter, QRectF rect, ColorMap &cm, QVector<NodeBox> &nb, QVector<LinkBox> &lb)
 {
+    painter->fillRect(this->rect(), Qt::white);
+
     // Draw node outlines
     painter->setPen(QPen(Qt::black));
     for(int b=0; b<nb.size(); b++)
