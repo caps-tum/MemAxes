@@ -722,13 +722,20 @@ int DataObject::parseCSVFile(QString dataFileName)
         
         //IBS data src
         
-        if(s.data_src == -1 && header.indexOf("ibs_dc_miss") >= 0){
-            if(lineValues[header.indexOf("ibs_dc_miss")].toInt() == 1){
-                s.data_src = 4; // cache miss
-            }else if(lineValues[header.indexOf("ibs_l2_miss")].toInt() == 1){
-                s.data_src = 3; // L3 hit (not really, L2 request could have been triggered by other operation)
-            }else s.data_src = 2; // no L2 miss -> no L1 hit and no L2 request or L2 hit
+        if(s.data_src == -1 && header.indexOf("ibs_dc_miss") >= 0 && header.indexOf("ibs_l2_miss") >= 0){
+            if(!lineValues[header.indexOf("ibs_dc_miss")].toInt() == 1){
+                s.data_src = 1; // L1 hit
+            }else if(!lineValues[header.indexOf("ibs_l2_miss")].toInt() == 1){
+                s.data_src = 2; // L2 hit
+            }else s.data_src = 4; // something else happened
         }
+        
+        if(header.indexOf("ibs_op_phy") >= 0){
+            s.addr = std::stoll(lineValues[header.indexOf("ibs_op_phy")].toStdString(), nullptr, 16);
+            std::cerr << s.addr << std::endl;
+        }
+
+
         
         
 
@@ -744,7 +751,7 @@ int DataObject::parseCSVFile(QString dataFileName)
             if(s.data_src == 1
                 && compSrc->GetComponentType() == SYS_SAGE_COMPONENT_CACHE
                 && ((Cache*)compSrc)->GetCacheLevel()==1) {
-                        qDebug("creating L1 cache datapath");
+                        //qDebug("creating L1 cache datapath");
                         break;//L1
                     }
             else if(s.data_src == 2

@@ -262,29 +262,27 @@ int MainWindow::loadData()
 
 int MainWindow::loadDataIBS()
 {
-    con->append("it started");
+
     int err = 0;
-    err = selectDirectory(&fetchDataDir, "fetch data");
-    if(err != 0)
-        return err;
+
 
     err = selectDirectory(&opDataDir, "op data");
     if(err != 0)
         return err;
 
     
-
-    QString fetchSourceDir(fetchDataDir+QString("/src"));
-    codeViz->setSourceDir(fetchSourceDir);
-    QString fetchTopoDir(fetchDataDir+QString("/hardware.xml"));
-    err = dataSet->loadHardwareTopologyIBS(fetchTopoDir);
+    
+    QString opSourceDir(opDataDir+QString("/src"));
+    codeViz->setSourceDir(opSourceDir);
+    QString opTopoDir(opDataDir+QString("/hardware.xml"));
+    err = dataSet->loadHardwareTopologyIBS(opTopoDir);
     if(err != 0)
     {
-        errdiag("Error loading hardware: "+fetchTopoDir);
+        errdiag("Error loading hardware: "+opTopoDir);
         return err;
     }
     //QString dataSetDir(dataDir+QString("/data/samples.out"));
-    QString dataSetDir(fetchDataDir+QString("/data/samples.csv"));
+    QString dataSetDir(opDataDir+QString("/data/samples.csv"));
     err = dataSet->loadData(dataSetDir);
     if(err != 0)
     {

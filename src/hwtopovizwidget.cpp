@@ -66,6 +66,7 @@ void HWTopoVizWidget::frameUpdate()
 {
     QRectF drawBox = this->rect();
     float diagonal = sqrt(drawBox.width() * drawBox.width() + drawBox.height() * drawBox.height());
+    
     float scaledMargin = margin * diagonal / 800;
     drawBox.adjust(scaledMargin,scaledMargin,-scaledMargin,-scaledMargin);
 
@@ -213,8 +214,10 @@ void HWTopoVizWidget::drawQtPainter(QPainter *painter)
         return;
 
     QRectF drawBox = this->rect();
-    drawBox.adjust(margin,margin,-margin,-margin);
-
+    float diagonal = sqrt(drawBox.width() * drawBox.width() + drawBox.height() * drawBox.height());
+    
+    float scaledMargin = margin * diagonal / 800;
+    drawBox.adjust(scaledMargin,scaledMargin,-scaledMargin,-scaledMargin);
     drawTopo(painter,drawBox,colorMap,nodeBoxes,linkBoxes);
 
 }
@@ -393,6 +396,7 @@ void HWTopoVizWidget::constructNodeBoxes(QRectF rect,
         vector<Component*> componentsAtDepth;
         node->GetComponentsNLevelsDeeper(&componentsAtDepth, i);
         deltaX = rect.width() / (float)componentsAtDepth.size();
+        
         for(int j=0; j<componentsAtDepth.size(); j++)
         {
             // Create Node Box
@@ -435,12 +439,13 @@ void HWTopoVizWidget::constructNodeBoxes(QRectF rect,
                 float xOffset = nodeMarginX;
                 if(deltaX - 2.f * xOffset < 10.f)xOffset = (deltaX - 10) / 2.;
                 if(xOffset < .5f) xOffset = .5f;
+                //if(vizMode == SUNBURST)xOffset = xOffset * ((i - 1));
 
                 float yOffset = nodeMarginY;
                 if(deltaY - 2.f * yOffset < 10.f)yOffset = (deltaY - 10) / 2.;
                 if(yOffset < 1.f) yOffset = 1.f;
                 
-                nb.box.adjust(xOffset,yOffset,-xOffset,0.);
+                nb.box.adjust(xOffset,yOffset,-xOffset, 0.);
             }
             nbout.push_back(nb);
 

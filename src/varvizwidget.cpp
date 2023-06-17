@@ -111,7 +111,7 @@ void VarViz::processData()
     // }
 
     // Sort based on value
-    qSort(varBlocks.begin(),varBlocks.end());
+    sort(varBlocks.begin(),varBlocks.end());
 
     processed = true;
 }

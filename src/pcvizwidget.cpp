@@ -250,7 +250,7 @@ bool PCVizWidget::eventFilter(QObject *obj, QEvent *event)
                 }
             }
 
-            needsRecalcLines = true;
+            //needsRecalcLines = true;
             needsRepaint = true;
         }
     }
@@ -456,7 +456,7 @@ void PCVizWidget::recalcLines(int dirtyAxis)
             col = dataColor;
             col.setW(unselOpacity);
         }
-
+        
         for(i=0; i<numDimensions-1; i++)
         {
             if(dirtyAxis != -1  && i != dirtyAxis && i != dirtyAxis-1)
@@ -729,7 +729,7 @@ void PCVizWidget::paintGL()
     glVertexPointer(FLOATS_PER_POINT,GL_FLOAT,0,verts.constData());
     glColorPointer(FLOATS_PER_COLOR,GL_FLOAT,0,colors.constData());
 
-    //glDrawArrays(GL_LINES,0,verts.size() / POINTS_PER_LINE);
+    glDrawArrays(GL_LINES,0,verts.size() / POINTS_PER_LINE);
 
     glDisableClientState(GL_VERTEX_ARRAY);
     glDisableClientState(GL_COLOR_ARRAY);
@@ -761,15 +761,17 @@ void PCVizWidget::drawQtPainter(QPainter *painter)
         painter->drawLine(a,b);
 
         QString text = SampleAxes::SampleAxesNames[i];
-        QPointF center = b - QPointF(fm.width(text)/2,15);
+        QPointF center = b - QPointF(fm.horizontalAdvance(text)/2,15);
+        
         painter->drawText(center,text);
+        
 
         text = QString::number(dimMins[i],'g',2);
-        center = a - QPointF(fm.width(text)/2,-10);
+        center = a - QPointF(fm.horizontalAdvance(text)/2,-10);
         painter->drawText(center,text);
 
         text = QString::number(dimMaxes[i],'g',2);
-        center = b - QPointF(fm.width(text)/2,0);
+        center = b - QPointF(fm.horizontalAdvance(text)/2,0);
         painter->drawText(center,text);
     }
 
