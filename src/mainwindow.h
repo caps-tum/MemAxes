@@ -81,6 +81,7 @@ public slots:
     int loadDataIBS();
     int selectDataDirectory();
     int selectDirectory(QString *dest, QString directory_name);
+    int selectInt(int *dest, QString wName, QString prompt, int rangeLow, int rangeHigh);
     void showSelectedOnly();
     void showAll();
     void hideSelected();

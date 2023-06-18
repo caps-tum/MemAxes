@@ -46,6 +46,7 @@ using namespace std;
 
 #include <QTimer>
 #include <QFileDialog>
+#include <QInputDialog>
 
 // NEW FEATURES
 // Mem topo 1d memory range
@@ -281,14 +282,29 @@ int MainWindow::loadDataIBS()
         errdiag("Error loading hardware: "+opTopoDir);
         return err;
     }
+
+    //ask for base latency
+    int baseLat = 0;
+    err = selectInt(&baseLat, "Set assumed latency of L1 cache", "please enter a number >= 0", 0, 1000);
+    if(err != 0){
+        errdiag("Error setting base latency");
+        return err;
+    }
+    dataSet->setIBSBaseLatency(baseLat);
+    
     //QString dataSetDir(dataDir+QString("/data/samples.out"));
     QString dataSetDir(opDataDir+QString("/data/samples.csv"));
+
+    //load the data
     err = dataSet->loadData(dataSetDir);
     if(err != 0)
     {
         errdiag("Error loading dataset: "+dataSetDir);
         return err;
     }
+
+    
+
     for(int i=0; i<vizWidgets.size(); i++)
     {
         vizWidgets[i]->processData();
@@ -326,6 +342,15 @@ int MainWindow::selectDirectory(QString *dest, QString directory_name){
 
     con->append("Selected " + directory_name + " Directory : " + dest);
 
+    return 0;
+}
+
+int MainWindow::selectInt(int *dest, QString wName, QString prompt, int rangeLow, int rangeHigh){
+    bool success = false;
+    while(!success){
+        *dest = QInputDialog::getInt(nullptr, wName, prompt, rangeLow, rangeLow, rangeHigh, 1, &success);
+    }
+    
     return 0;
 }
 

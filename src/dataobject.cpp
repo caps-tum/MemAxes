@@ -643,6 +643,10 @@ int DataObject::DecodeDataSource(QString data_src_str)
     return -1;
 }
 
+void DataObject::setIBSBaseLatency(int baseLatency){
+    ibsBaseLatency = baseLatency;
+}
+
 
 int DataObject::parseCSVFile(QString dataFileName)
 {
@@ -732,7 +736,11 @@ int DataObject::parseCSVFile(QString dataFileName)
         
         if(header.indexOf("ibs_op_phy") >= 0){
             s.addr = std::stoll(lineValues[header.indexOf("ibs_op_phy")].toStdString(), nullptr, 16);
-            std::cerr << s.addr << std::endl;
+            //std::cerr << s.addr << std::endl;
+        }
+
+        if(header.indexOf("ibs_dc_miss_lat") >= 0){
+            s.latency = lineValues[header.indexOf("ibs_dc_miss_lat")].toLongLong() + ibsBaseLatency;
         }
 
 

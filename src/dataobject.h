@@ -181,6 +181,8 @@ public:
 
     int loadHardwareTopologyIBS(QString filename);
 
+    void setIBSBaseLatency(int baseLatency);
+
     void selectionChanged() { collectTopoSamples(); }
     void visibilityChanged() { collectTopoSamples(); }
 
@@ -191,6 +193,7 @@ private:
     void collectTopoSamples();
     int parseCSVFile(QString dataFileName);
     int DecodeDataSource(QString data_src_str);
+    
 public:
     // Selection & Visibility
     selection_mode selectionMode() { return selMode; }
@@ -294,6 +297,7 @@ private:
     // QVector<qreal> standardDeviations;
     // QVector<qreal> covarianceMatrix;
     // QVector<qreal> correlationMatrix;
+    int ibsBaseLatency;
 
 private:
     console *con;

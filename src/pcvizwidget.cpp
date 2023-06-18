@@ -421,6 +421,8 @@ void PCVizWidget::calcHistBins()
             histVals[i][j] = scale(histVals[i][j],0,histMaxVals[i],0,1);
 }
 
+
+//calculates vertex positions for drawing connection lines between neighboring histograms
 void PCVizWidget::recalcLines(int dirtyAxis)
 {
     QVector4D col;
