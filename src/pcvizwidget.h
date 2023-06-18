@@ -54,6 +54,8 @@ public:
 
 public:
     void recalcLines(int dirtyAxis = -1);
+    int removeHistogram(int index);
+    int addHistogram(int index);
 
 signals:
     void lineSelected(int line);

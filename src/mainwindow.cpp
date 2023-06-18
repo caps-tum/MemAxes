@@ -97,6 +97,10 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->deselectAll, SIGNAL(clicked()), this, SLOT(deselectAll()));
     connect(ui->selectAllVisible, SIGNAL(clicked()), this, SLOT(selectAllVisible()));
 
+    // Add Remove Histograms
+    connect(ui->addHistogram, SIGNAL(clicked()), this, SLOT(addHistogram()));
+    connect(ui->removeHistogram, SIGNAL(clicked()), this, SLOT(removeHistogram()));
+
     // Visibility buttons
     connect(ui->hideSelected, SIGNAL(clicked()), this, SLOT(hideSelected()));
     connect(ui->showSelectedOnly, SIGNAL(clicked()), this, SLOT(showSelectedOnly()));
@@ -162,6 +166,7 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->histogramBox, SIGNAL(clicked(bool)), parallelCoordinatesViz, SLOT(setShowHistograms(bool)));
 
     vizWidgets.push_back(parallelCoordinatesViz);
+    pcViz = parallelCoordinatesViz;
 
     /*
      * All VizWidgets
@@ -393,11 +398,18 @@ void MainWindow::deselectAll()
 }
 
 void MainWindow::addHistogram(){
-    //TODO
+    int err = pcViz->addHistogram(ui->comboBox->currentIndex());
+    if(err == -1){
+        errdiag("Histogram for " + (ui->comboBox->itemData(ui->comboBox->currentIndex())).toString() + " already present");
+    }
 }
 
 void MainWindow::removeHistogram(){
-    //TODO
+    int err = pcViz->removeHistogram(ui->comboBox->currentIndex());
+    
+    if(err == -1){
+        errdiag("Histogram for " + (ui->comboBox->itemData(ui->comboBox->currentIndex())).toString() + " can not be deleted: Histogram not present");
+    }
 }
 
 void MainWindow::showAll()

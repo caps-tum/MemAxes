@@ -107,6 +107,7 @@ private:
     VarViz *varViz;
 
     QVector<VizWidget*> vizWidgets;
+    PCVizWidget *pcViz;
     //VolumeVizWidget *volumeVizWidget;
 
     QString dataDir;

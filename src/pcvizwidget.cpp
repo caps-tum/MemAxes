@@ -168,6 +168,26 @@ void PCVizWidget::mousePressEvent(QMouseEvent *mouseEvent)
     }
 }
 
+int PCVizWidget::removeHistogram(int index){
+    if(!axesOrder.contains(index)){
+        return -1;
+    }
+
+    //TODO
+
+    return 0;
+}
+
+int PCVizWidget::addHistogram(int index){
+    if(axesOrder.contains(index)){
+        return -1;
+    }
+
+    //TODO
+
+    return 0;
+}
+
 void PCVizWidget::mouseReleaseEvent(QMouseEvent *event)
 {
     Q_UNUSED(event);
