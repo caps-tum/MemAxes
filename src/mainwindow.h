@@ -81,13 +81,16 @@ public slots:
     int loadDataIBS();
     int selectDataDirectory();
     int selectDirectory(QString *dest, QString directory_name);
+    void setHistogramsComboBox();
     int selectInt(int *dest, QString wName, QString prompt, int rangeLow, int rangeHigh);
     void showSelectedOnly();
+    void removeHistogram();
     void showAll();
     void hideSelected();
     void selectAllVisible();
     void selectAll();
     void deselectAll();
+    void addHistogram();
     void setSelectModeAND(bool on);
     void setSelectModeOR(bool on);
     void setSelectModeXOR(bool on);

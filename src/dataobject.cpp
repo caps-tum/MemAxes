@@ -647,6 +647,14 @@ void DataObject::setIBSBaseLatency(int baseLatency){
     ibsBaseLatency = baseLatency;
 }
 
+QString DataObject::titleOfColumn(int index){
+    return header.at(index);
+}
+
+int DataObject::numberOfColumns(){
+    return header.size();
+}
+
 
 int DataObject::parseCSVFile(QString dataFileName)
 {
@@ -682,7 +690,7 @@ int DataObject::parseCSVFile(QString dataFileName)
     QVector<QString> varVec;
     QVector<QString> sourceVec;
     QVector<QString> instrVec;
-    QStringList header = line.split(',');
+    header = line.split(',');
     ElemIndex numHeaderDimensions = header.size();
 
     // Get data

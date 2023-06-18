@@ -76,6 +76,8 @@ MainWindow::MainWindow(QWidget *parent) :
     con->setConsoleInput(console_input);
     con->setDataSet(dataSet);
 
+    
+
     /*
      * MainWindow
     */
@@ -117,6 +119,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
     varViz = new VarViz(this);
     ui->varVizLayout->addWidget(varViz);
+    varViz->setStyleSheet("background-color: red;");
 
     vizWidgets.push_back(varViz);
 
@@ -200,6 +203,8 @@ void MainWindow::frameUpdateAll()
         vizWidgets[i]->frameUpdate();
     }
 }
+
+
 
 void MainWindow::selectionChangedSlot()
 {
@@ -303,6 +308,8 @@ int MainWindow::loadDataIBS()
         return err;
     }
 
+    setHistogramsComboBox();
+
     
 
     for(int i=0; i<vizWidgets.size(); i++)
@@ -345,10 +352,17 @@ int MainWindow::selectDirectory(QString *dest, QString directory_name){
     return 0;
 }
 
+void MainWindow::setHistogramsComboBox(){
+    for(int i = 0; i < dataSet->numberOfColumns(); i++){
+        ui->comboBox->addItem(QString("%1").arg(i, 2, 10, QLatin1Char('0')) + ": " + dataSet->titleOfColumn(i));
+    }
+
+}
+
 int MainWindow::selectInt(int *dest, QString wName, QString prompt, int rangeLow, int rangeHigh){
     bool success = false;
     while(!success){
-        *dest = QInputDialog::getInt(nullptr, wName, prompt, rangeLow, rangeLow, rangeHigh, 1, &success);
+        *dest = QInputDialog::getInt(this, wName, prompt, rangeLow, rangeLow, rangeHigh, 1, &success);
     }
     
     return 0;
@@ -376,6 +390,14 @@ void MainWindow::deselectAll()
 {
     dataSet->deselectAll();
     selectionChangedSlot();
+}
+
+void MainWindow::addHistogram(){
+    //TODO
+}
+
+void MainWindow::removeHistogram(){
+    //TODO
 }
 
 void MainWindow::showAll()

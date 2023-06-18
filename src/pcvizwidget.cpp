@@ -742,7 +742,8 @@ void PCVizWidget::drawQtPainter(QPainter *painter)
     if(!processed)
         return;
 
-    painter->fillRect(this->rect(), Qt::white);
+    //painter->fillRect(this->rect(), Qt::white);
+
 
     int mx=40;
     int my=30;

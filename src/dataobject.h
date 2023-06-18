@@ -188,6 +188,10 @@ public:
 
     void setConsole(console *c) { con = c; }
 
+    QString titleOfColumn(int index);
+
+    int numberOfColumns();
+
 private:
     void allocate();
     void collectTopoSamples();
@@ -285,6 +289,8 @@ private:
     QVector<qreal> sample_maxes;
     QVector<qreal> sample_means;
     QVector<qreal> sample_stdevs;
+
+    QStringList header;
     // Sample sample_covarianceMatrix;
     // Sample sample_correlationMatrix;
 
