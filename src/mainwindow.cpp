@@ -43,6 +43,7 @@
 #include <iostream>
 #include <sys/stat.h>
 using namespace std;
+using namespace SampleAxes;
 
 #include <QTimer>
 #include <QFileDialog>
@@ -358,7 +359,12 @@ int MainWindow::selectDirectory(QString *dest, QString directory_name){
 }
 
 void MainWindow::setHistogramsComboBox(){
-    for(int i = 0; i < dataSet->numberOfColumns(); i++){
+    //MemAxes builtin axes
+    for(int i = 0; i < 19; i++){
+        ui->comboBox->addItem(QString("%1").arg(i, 2, 10, QLatin1Char('0')) + ": " + SampleAxesNames.at(i));
+    }
+    //IBS additional axes
+    for(int i = 19; i < dataSet->numberOfColumns(); i++){
         ui->comboBox->addItem(QString("%1").arg(i, 2, 10, QLatin1Char('0')) + ": " + dataSet->titleOfColumn(i));
     }
 
