@@ -46,6 +46,9 @@
 
 #include "util.h"
 
+#define SNAPPING true
+#define SKIP_GL true
+
 PCVizWidget::PCVizWidget(QWidget *parent)
     : VizWidget(parent)
 {
@@ -118,6 +121,7 @@ void PCVizWidget::processData()
 
     axesPositions.resize(numDimensions);
     axesOrder.resize(numDimensions);
+    axesDataIndex.resize(numDimensions);
 
     histVals.resize(numDimensions);
     histMaxVals.resize(numDimensions);
@@ -128,6 +132,8 @@ void PCVizWidget::processData()
     {
         if(!processed)
             axesOrder[i] = i;
+
+        axesDataIndex[i] = i;
 
         axesPositions[axesOrder[i]] = i*(1.0/(numDimensions-1));
 
@@ -169,17 +175,37 @@ void PCVizWidget::mousePressEvent(QMouseEvent *mouseEvent)
 }
 
 int PCVizWidget::removeHistogram(int index){
-    if(!axesOrder.contains(index)){
+    if(!axesDataIndex.contains(index)){
         return -1;
     }
 
     //TODO
+    int indexOfAxis = axesDataIndex.indexOf(index);
+    axesDataIndex.removeAt(indexOfAxis);
+    std::cerr << "removed axis with index " << indexOfAxis << std::endl;
+    axesOrder.removeAt(indexOfAxis);
+    axesPositions.removeAt(indexOfAxis);
+    histVals.removeAt(indexOfAxis);
+    histMaxVals.removeAt(indexOfAxis);
+    dimMins.removeAt(indexOfAxis);
+    dimMaxes.removeAt(indexOfAxis);
+    selMins.removeAt(indexOfAxis);
+    selMaxes.removeAt(indexOfAxis);
+
+    
+
+    numDimensions--;
+    //redistribute axes
+    distributeAxes();
+
+    needsRepaint = true;
+    needsRecalcLines = true;
 
     return 0;
 }
 
 int PCVizWidget::addHistogram(int index){
-    if(axesOrder.contains(index)){
+    if(axesDataIndex.contains(index)){
         return -1;
     }
 
@@ -254,6 +280,7 @@ bool PCVizWidget::eventFilter(QObject *obj, QEvent *event)
             axesPositions[movingAxis] = ((qreal)mousePos.x()-plotBBox.left())/plotBBox.width();
 
             // Sort moved axes
+            /*
             bool reorder = false;
             for(int i=0; i<numDimensions-1; i++)
             {
@@ -268,10 +295,17 @@ bool PCVizWidget::eventFilter(QObject *obj, QEvent *event)
                         reorder = true;
                     }
                 }
+            }*/
+
+            orderByPosition();
+
+            if(SNAPPING){
+                distributeAxes();
             }
 
+
             //needsRecalcLines = true;
-            needsRepaint = true;
+
         }
     }
 
@@ -445,6 +479,7 @@ void PCVizWidget::calcHistBins()
 //calculates vertex positions for drawing connection lines between neighboring histograms
 void PCVizWidget::recalcLines(int dirtyAxis)
 {
+    if(SKIP_GL)return;
     QVector4D col;
     QVector2D a, b;
     int i, axis, nextAxis;//, elem;
@@ -751,7 +786,7 @@ void PCVizWidget::paintGL()
     glVertexPointer(FLOATS_PER_POINT,GL_FLOAT,0,verts.constData());
     glColorPointer(FLOATS_PER_COLOR,GL_FLOAT,0,colors.constData());
 
-    glDrawArrays(GL_LINES,0,verts.size() / POINTS_PER_LINE);
+    if(!SKIP_GL)glDrawArrays(GL_LINES,0,verts.size() / POINTS_PER_LINE);
 
     glDisableClientState(GL_VERTEX_ARRAY);
     glDisableClientState(GL_COLOR_ARRAY);
@@ -786,6 +821,8 @@ void PCVizWidget::drawQtPainter(QPainter *painter)
         painter->drawLine(a,b);
 
         QString text = SampleAxes::SampleAxesNames[i];
+        //debugging text
+        text = QString("%1 : %2 : %3").arg(i).arg(axesDataIndex[i]).arg(axesOrder[i]);
         QPointF center = b - QPointF(fm.horizontalAdvance(text)/2,15);
         
         painter->drawText(center,text);
@@ -858,5 +895,34 @@ void PCVizWidget::drawQtPainter(QPainter *painter)
 
             painter->drawLine(a,b);
         }
+    }
+}
+
+void PCVizWidget::distributeAxes(){
+    for(int i = 0; i < numDimensions; i++){
+        axesPositions[i] = axesOrder[i]*(1.0/(numDimensions-1));
+    }
+}
+
+void PCVizWidget::orderByPosition(){
+
+    for(int i = 0; i < numDimensions; i++){
+        axesOrder[i] = -1;
+    }
+
+    for(int i = 0; i < numDimensions; i++){
+        int smallestIndex = -1;
+        float smallestX = INFINITY;
+
+        for(int j = 0; j < numDimensions; j++){
+            if(axesOrder[j] < 0){
+                if(axesPositions[j] < smallestX){
+                    smallestX = axesPositions[j];
+                    smallestIndex = j;
+                }
+            }
+        }
+
+        axesOrder[smallestIndex] = i;
     }
 }

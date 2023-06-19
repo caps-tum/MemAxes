@@ -49,7 +49,7 @@ HWTopoVizWidget::HWTopoVizWidget(QWidget *parent) :
 {
     dataMode = COLORBY_CYCLES;
     vizMode = SUNBURST;
-
+    colorBlue = true;
     colorMap = gradientColorMap(QColor(255,237,160),
                                 QColor(240,59 ,32 ),
                                 256);
@@ -170,7 +170,7 @@ void HWTopoVizWidget::drawTopo(QPainter *painter, QRectF rect, ColorMap &cm, QVe
 
         // Color by value
         QColor col = valToColor(nb.at(b).val,cm);
-        if(numSamples == 0)col = col.blue();
+        if(numSamples == 0 && colorBlue)col = col.blue();
         painter->setBrush(col);
 
         // Draw rect (radial or regular)
@@ -522,4 +522,9 @@ void HWTopoVizWidget::selectSamplesWithinNode(Component *c)
 {
     dataSet->selectByResource(c);
     emit selectionChangedSig();
+}
+
+void HWTopoVizWidget::blueSwitch(){
+    colorBlue = !colorBlue;
+    needsRepaint = true;
 }

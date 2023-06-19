@@ -121,6 +121,7 @@ public slots:
     void setColorBySamples(bool on) { if(on) { dataMode = COLORBY_SAMPLES; selectionChangedSlot(); } }
     void setVizModeIcicle(bool on) { if(on) { vizMode = ICICLE; selectionChangedSlot(); } }
     void setVizModeSunburst(bool on) { if(on) { vizMode = SUNBURST; selectionChangedSlot(); } }
+    void blueSwitch();
 
 private:
     void calcMinMaxes();
@@ -133,10 +134,13 @@ private:
     Component* nodeAtPosition(QPoint p);
     void selectSamplesWithinNode(Component *lvl);
 
+
+
 private:
 
     bool needsConstructNodeBoxes;
     bool needsCalcMinMaxes;
+    bool colorBlue;
 
     QVector<NodeBox> nodeBoxes;
     QVector<LinkBox> linkBoxes;

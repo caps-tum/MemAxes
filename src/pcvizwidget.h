@@ -77,6 +77,10 @@ protected:
     void paintGL();
     void drawQtPainter(QPainter *painter);
 
+    void distributeAxes();
+
+    void orderByPosition();
+
     void leaveEvent(QEvent *e);
     void mousePressEvent(QMouseEvent *e);
     void mouseReleaseEvent(QMouseEvent *e);
@@ -114,6 +118,7 @@ private:
     QVector<qreal> selMaxes;
 
     QVector<int> axesOrder;
+    QVector<int> axesDataIndex;
     QVector<qreal> axesPositions;
 
     QPoint contextMenuMousePos;

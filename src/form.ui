@@ -186,6 +186,16 @@
                  </property>
                 </widget>
                </item>
+               <item>
+                <widget class="QCheckBox" name="blueColor">
+                 <property name="text">
+                  <string>empty resources blue</string>
+                 </property>
+                 <property name="checked">
+                  <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
               </layout>
              </widget>
             </item>

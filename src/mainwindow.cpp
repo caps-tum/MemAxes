@@ -152,6 +152,7 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->memTopoColorBySamples,SIGNAL(toggled(bool)),memViz,SLOT(setColorBySamples(bool)));
     connect(ui->memTopoVizModeIcicle,SIGNAL(toggled(bool)),memViz,SLOT(setVizModeIcicle(bool)));
     connect(ui->memTopoVizModeSunburst,SIGNAL(toggled(bool)),memViz,SLOT(setVizModeSunburst(bool)));
+    connect(ui->blueColor, SIGNAL(stateChanged(int)), memViz, SLOT(blueSwitch()));
 
     vizWidgets.push_back(memViz);
 
@@ -378,6 +379,8 @@ int MainWindow::selectInt(int *dest, QString wName, QString prompt, int rangeLow
     
     return 0;
 }
+
+
 
 void MainWindow::showSelectedOnly()
 {
