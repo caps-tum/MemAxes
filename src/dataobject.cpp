@@ -783,6 +783,17 @@ int DataObject::parseCSVFile(QString dataFileName)
             s.latency = lineValues[header.indexOf("ibs_dc_miss_lat")].toLongLong() + ibsBaseLatency;
         }
 
+        for(int i = 19; i < header.length(); i++){
+            string s = lineValues[i].toStdString();
+            long long r = 0;
+            if(s != "(null)"){
+                if(i == 29 || i == 70 || i == 71){
+                    r = std::stoull(s, nullptr, 16);
+                }else r = std::stoll(s);
+            }
+            sampleMatrix[i*header.length() + elemid] = r;
+        }
+
 
         
         
