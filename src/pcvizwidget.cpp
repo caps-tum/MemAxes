@@ -45,25 +45,29 @@
 #include <algorithm>
 
 #include "util.h"
+#include "chrono"
 
 #define SNAPPING true
-#define SKIP_GL true
+#define SKIP_GL false
+#define TIME_LOGGING true
+
+using namespace std::chrono;
 
 PCVizWidget::PCVizWidget(QWidget *parent)
     : VizWidget(parent)
 {
-    colorMap.push_back(QColor(166,206,227));
-    colorMap.push_back(QColor(31,120,180));
-    colorMap.push_back(QColor(178,223,138));
-    colorMap.push_back(QColor(51,160,44));
-    colorMap.push_back(QColor(251,154,153));
-    colorMap.push_back(QColor(227,26,28));
-    colorMap.push_back(QColor(253,191,111));
-    colorMap.push_back(QColor(255,127,0));
-    colorMap.push_back(QColor(202,178,214));
-    colorMap.push_back(QColor(106,61,154));
-    colorMap.push_back(QColor(255,255,153));
-    colorMap.push_back(QColor(177,89,40 ));
+    colorMap.push_back(QColor(166, 206, 227));
+    colorMap.push_back(QColor(31, 120, 180));
+    colorMap.push_back(QColor(178, 223, 138));
+    colorMap.push_back(QColor(51, 160, 44));
+    colorMap.push_back(QColor(251, 154, 153));
+    colorMap.push_back(QColor(227, 26, 28));
+    colorMap.push_back(QColor(253, 191, 111));
+    colorMap.push_back(QColor(255, 127, 0));
+    colorMap.push_back(QColor(202, 178, 214));
+    colorMap.push_back(QColor(106, 61, 154));
+    colorMap.push_back(QColor(255, 255, 153));
+    colorMap.push_back(QColor(177, 89, 40));
 
     needsCalcHistBins = true;
     needsCalcMinMaxes = true;
@@ -92,16 +96,16 @@ PCVizWidget::PCVizWidget(QWidget *parent)
             this, SLOT(showContextMenu(const QPoint &)));
 }
 
-#define LINES_PER_DATAPT    (numDimensions-1)
-#define POINTS_PER_LINE     2
-#define FLOATS_PER_POINT    2
-#define FLOATS_PER_COLOR    4
+#define LINES_PER_DATAPT (numDimensions - 1)
+#define POINTS_PER_LINE 2
+#define FLOATS_PER_POINT 2
+#define FLOATS_PER_COLOR 4
 
 void PCVizWidget::processData()
 {
     processed = false;
 
-    if(dataSet->empty())
+    if (dataSet->empty())
         return;
 
     // numDimensions = dataSet->numDimensions;
@@ -128,14 +132,14 @@ void PCVizWidget::processData()
     histMaxVals.fill(0);
 
     // Initial axis positions and order
-    for(int i=0; i<numDimensions; i++)
+    for (int i = 0; i < numDimensions; i++)
     {
-        if(!processed)
+        if (!processed)
             axesOrder[i] = i;
 
         axesDataIndex[i] = i;
 
-        axesPositions[axesOrder[i]] = i*(1.0/(numDimensions-1));
+        axesPositions[axesOrder[i]] = i * (1.0 / (numDimensions - 1));
 
         histVals[i].resize(numHistBins);
         histVals[i].fill(0);
@@ -156,30 +160,32 @@ void PCVizWidget::leaveEvent(QEvent *e)
 
 void PCVizWidget::mousePressEvent(QMouseEvent *mouseEvent)
 {
-    if(!processed)
+    if (!processed)
         return;
 
     QPoint mousePos = mouseEvent->pos();
 
-    if(cursorPos.x() != -1 && mousePos.y() > plotBBox.top())
+    if (cursorPos.x() != -1 && mousePos.y() > plotBBox.top())
     {
         selectionAxis = cursorPos.x();
         firstSel = mousePos.y();
     }
 
-    if(mousePos.y() > 0 && mousePos.y() < plotBBox.top())
+    if (mousePos.y() > 0 && mousePos.y() < plotBBox.top())
     {
         movingAxis = getClosestAxis(mousePos.x());
         assert(movingAxis < numDimensions);
     }
 }
 
-int PCVizWidget::removeHistogram(int index){
-    if(!axesDataIndex.contains(index)){
+int PCVizWidget::removeHistogram(int index)
+{
+    if (!axesDataIndex.contains(index))
+    {
         return -1;
     }
 
-    //TODO
+    // TODO
     int indexOfAxis = axesDataIndex.indexOf(index);
     axesDataIndex.removeAt(indexOfAxis);
     std::cerr << "removed axis with index " << indexOfAxis << std::endl;
@@ -192,10 +198,9 @@ int PCVizWidget::removeHistogram(int index){
     selMins.removeAt(indexOfAxis);
     selMaxes.removeAt(indexOfAxis);
 
-    
-
     numDimensions--;
-    //redistribute axes
+    // redistribute axes
+    orderByPosition();
     distributeAxes();
 
     needsRepaint = true;
@@ -204,12 +209,14 @@ int PCVizWidget::removeHistogram(int index){
     return 0;
 }
 
-int PCVizWidget::addHistogram(int index){
-    if(axesDataIndex.contains(index)){
+int PCVizWidget::addHistogram(int index)
+{
+    if (axesDataIndex.contains(index))
+    {
         return -1;
     }
 
-    //TODO
+    // TODO
 
     return 0;
 }
@@ -218,10 +225,10 @@ void PCVizWidget::mouseReleaseEvent(QMouseEvent *event)
 {
     Q_UNUSED(event);
 
-    if(!processed)
+    if (!processed)
         return;
 
-    if(selectionAxis != -1 && event->button() == Qt::LeftButton && lastSel == -1)
+    if (selectionAxis != -1 && event->button() == Qt::LeftButton && lastSel == -1)
     {
         selMins[selectionAxis] = -1;
         selMaxes[selectionAxis] = -1;
@@ -233,7 +240,7 @@ void PCVizWidget::mouseReleaseEvent(QMouseEvent *event)
     selectionAxis = -1;
     lastSel = -1;
 
-    if(animationAxis != -1)
+    if (animationAxis != -1)
         endAnimation();
 }
 
@@ -241,25 +248,25 @@ bool PCVizWidget::eventFilter(QObject *obj, QEvent *event)
 {
     Q_UNUSED(obj);
 
-    if(!processed)
+    if (!processed)
         return false;
 
-    QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
+    QMouseEvent *mouseEvent = static_cast<QMouseEvent *>(event);
     QPoint mousePos = mouseEvent->pos();
     QPoint mouseDelta = mousePos - prevMousePos;
 
     if (event->type() == QEvent::MouseMove)
     {
         // Dragging to create a selection
-        if(mouseEvent->buttons() && selectionAxis != -1)
+        if (mouseEvent->buttons() && selectionAxis != -1)
         {
-            lastSel = clamp((qreal)mousePos.y(),plotBBox.top(),plotBBox.bottom());
+            lastSel = clamp((qreal)mousePos.y(), plotBBox.top(), plotBBox.bottom());
 
-            qreal selmin = std::min(firstSel,lastSel);
-            qreal selmax = std::max(firstSel,lastSel);
+            qreal selmin = std::min(firstSel, lastSel);
+            qreal selmax = std::max(firstSel, lastSel);
 
-            selMins[selectionAxis] = 1.0-scale(selmax,plotBBox.top(),plotBBox.bottom(),0,1);
-            selMaxes[selectionAxis] = 1.0-scale(selmin,plotBBox.top(),plotBBox.bottom(),0,1);
+            selMins[selectionAxis] = 1.0 - scale(selmax, plotBBox.top(), plotBBox.bottom(), 0, 1);
+            selMaxes[selectionAxis] = 1.0 - scale(selmin, plotBBox.top(), plotBBox.bottom(), 0, 1);
 
             needsRepaint = true;
         }
@@ -268,16 +275,16 @@ bool PCVizWidget::eventFilter(QObject *obj, QEvent *event)
         int axis = getClosestAxis(mousePos.x());
 
         cursorPos.setX(axis);
-        cursorPos.setY(std::max((int)mousePos.y(),(int)plotBBox.top()));
-        cursorPos.setY(std::min((int)cursorPos.y(),(int)plotBBox.bottom()));
+        cursorPos.setY(std::max((int)mousePos.y(), (int)plotBBox.top()));
+        cursorPos.setY(std::min((int)cursorPos.y(), (int)plotBBox.bottom()));
 
-        if(cursorPos != prevCursorPos)
+        if (cursorPos != prevCursorPos)
             needsRepaint = true;
 
         // Move axes
-        if(movingAxis != -1 && mouseDelta.x() != 0)
+        if (movingAxis != -1 && mouseDelta.x() != 0)
         {
-            axesPositions[movingAxis] = ((qreal)mousePos.x()-plotBBox.left())/plotBBox.width();
+            axesPositions[movingAxis] = ((qreal)mousePos.x() - plotBBox.left()) / plotBBox.width();
 
             // Sort moved axes
             /*
@@ -299,13 +306,12 @@ bool PCVizWidget::eventFilter(QObject *obj, QEvent *event)
 
             orderByPosition();
 
-            if(SNAPPING){
+            if (SNAPPING)
+            {
                 distributeAxes();
             }
 
-
-            //needsRecalcLines = true;
-
+            needsRecalcLines = true;
         }
     }
 
@@ -320,10 +326,10 @@ int PCVizWidget::getClosestAxis(int xval)
     qreal dist;
     int closestDistance = plotBBox.width();
     int closestAxis = -1;
-    for(int i=0; i<numDimensions; i++)
+    for (int i = 0; i < numDimensions; i++)
     {
-        dist = abs(40+axesPositions[i]*plotBBox.width()-xval);
-        if(dist < closestDistance)
+        dist = abs(40 + axesPositions[i] * plotBBox.width() - xval);
+        if (dist < closestDistance)
         {
             closestDistance = dist;
             closestAxis = i;
@@ -338,44 +344,44 @@ void PCVizWidget::processSelection()
     QVector<qreal> dataSelMins;
     QVector<qreal> dataSelMaxes;
 
-    if(!processed)
+    if (!processed)
         return;
 
-    for(int i=0; i<selMins.size(); i++)
+    for (int i = 0; i < selMins.size(); i++)
     {
-        if(selMins[i] != -1)
+        if (selMins[i] != -1)
         {
             selDims.push_back(i);
-            dataSelMins.push_back(lerp(selMins[i],dimMins[i],dimMaxes[i]));
-            dataSelMaxes.push_back(lerp(selMaxes[i],dimMins[i],dimMaxes[i]));
+            dataSelMins.push_back(lerp(selMins[i], dimMins[i], dimMaxes[i]));
+            dataSelMaxes.push_back(lerp(selMaxes[i], dimMins[i], dimMaxes[i]));
         }
     }
 
-    if(selDims.isEmpty())
+    if (selDims.isEmpty())
     {
-        //animationAxis = -1;
-        //anselMins.fill(-1);
-        //anselMaxes.fill(-1);
-        //dataSet->deselectAll();
+        // animationAxis = -1;
+        // anselMins.fill(-1);
+        // anselMaxes.fill(-1);
+        // dataSet->deselectAll();
     }
     else
     {
-        if(animationAxis != -1)
+        if (animationAxis != -1)
         {
             selection_mode s = dataSet->selectionMode();
-            dataSet->setSelectionMode(MODE_NEW,true);
+            dataSet->setSelectionMode(MODE_NEW, true);
             dataSet->selectSet(animSet);
-            dataSet->setSelectionMode(MODE_FILTER,true);
-            dataSet->selectByMultiDimRange(selDims,dataSelMins,dataSelMaxes);
-            dataSet->setSelectionMode(s,true);
+            dataSet->setSelectionMode(MODE_FILTER, true);
+            dataSet->selectByMultiDimRange(selDims, dataSelMins, dataSelMaxes);
+            dataSet->setSelectionMode(s, true);
         }
         else
         {
-            dataSet->selectByMultiDimRange(selDims,dataSelMins,dataSelMaxes);
+            dataSet->selectByMultiDimRange(selDims, dataSelMins, dataSelMaxes);
         }
     }
 
-    if(animationAxis == -1)
+    if (animationAxis == -1)
     {
         selMins.fill(-1);
         selMaxes.fill(-1);
@@ -388,21 +394,21 @@ void PCVizWidget::processSelection()
 
 void PCVizWidget::calcMinMaxes()
 {
-    if(!processed)
+    if (!processed)
         return;
 
     dimMins.fill(std::numeric_limits<double>::max());
     dimMaxes.fill(std::numeric_limits<double>::min());
 
-    for( Sample s : dataSet->samples)
+    for (Sample s : dataSet->samples)
     {
-        if(!dataSet->visible(s.sampleId))
+        if (!dataSet->visible(s.sampleId))
             continue;
-        for(int i=0; i<numDimensions; i++)
+        for (int i = 0; i < numDimensions; i++)
         {
-            long long val = dataSet->GetSampleAttribByIndex(&s, i);
-            dimMins[i] = std::min(dimMins[i],(qreal)val);
-            dimMaxes[i] = std::max(dimMaxes[i],(qreal)val);
+            long long val = dataSet->GetSampleAttribByIndex(&s, axesDataIndex[i]);
+            dimMins[i] = std::min(dimMins[i], (qreal)val);
+            dimMaxes[i] = std::max(dimMaxes[i], (qreal)val);
         }
     }
     // int elem;
@@ -422,29 +428,29 @@ void PCVizWidget::calcMinMaxes()
 
 void PCVizWidget::calcHistBins()
 {
-    if(!processed)
+    if (!processed)
         return;
 
     histMaxVals.fill(0);
 
-    for( Sample s : dataSet->samples)
+    for (Sample s : dataSet->samples)
     {
-        if(dataSet->selectionDefined() && !dataSet->selected(s.sampleId))
+        if (dataSet->selectionDefined() && !dataSet->selected(s.sampleId))
             continue;
 
-        for(int i=0; i<numDimensions; i++)
+        for (int i = 0; i < numDimensions; i++)
         {
-            long long val = dataSet->GetSampleAttribByIndex(&s, i);
+            long long val = dataSet->GetSampleAttribByIndex(&s, axesDataIndex[i]);
 
-            int histBin = floor(scale(val,dimMins[i],dimMaxes[i],0,numHistBins));
+            int histBin = floor(scale(val, dimMins[i], dimMaxes[i], 0, numHistBins));
 
-            if(histBin >= numHistBins)
-                histBin = numHistBins-1;
-            if(histBin < 0)
+            if (histBin >= numHistBins)
+                histBin = numHistBins - 1;
+            if (histBin < 0)
                 histBin = 0;
 
             histVals[i][histBin] += 1;
-            histMaxVals[i] = std::max(histMaxVals[i],histVals[i][histBin]);
+            histMaxVals[i] = std::max(histMaxVals[i], histVals[i][histBin]);
         }
     }
 
@@ -470,40 +476,43 @@ void PCVizWidget::calcHistBins()
     // }
 
     // Scale hist values to [0,1]
-    for(int i=0; i<numDimensions; i++)
-        for(int j=0; j<numHistBins; j++)
-            histVals[i][j] = scale(histVals[i][j],0,histMaxVals[i],0,1);
+    for (int i = 0; i < numDimensions; i++)
+        for (int j = 0; j < numHistBins; j++)
+            histVals[i][j] = scale(histVals[i][j], 0, histMaxVals[i], 0, 1);
 }
 
-
-//calculates vertex positions for drawing connection lines between neighboring histograms
+// calculates vertex positions for drawing connection lines between neighboring histograms
 void PCVizWidget::recalcLines(int dirtyAxis)
 {
-    if(SKIP_GL)return;
+    if (SKIP_GL)
+        return;
+    
+    milliseconds msStart = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
+
     QVector4D col;
     QVector2D a, b;
-    int i, axis, nextAxis;//, elem;
+    int i, axis, nextAxis; //, elem;
     // QVector<double>::Iterator p;
 
-    if(!processed)
+    if (!processed)
         return;
 
     verts.clear();
     colors.clear();
 
-    QVector4D redVec = QVector4D(255,0,0,255);
+    QVector4D redVec = QVector4D(255, 0, 0, 255);
     QColor dataSetColor = colorMap.at(0);
-    qreal Cr,Cg,Cb;
-    dataSetColor.getRgbF(&Cr,&Cg,&Cb);
-    QVector4D dataColor = QVector4D(Cr,Cg,Cb,1);
+    qreal Cr, Cg, Cb;
+    dataSetColor.getRgbF(&Cr, &Cg, &Cb);
+    QVector4D dataColor = QVector4D(Cr, Cg, Cb, 1);
 
-    for( Sample s : dataSet->samples)
+    for (Sample s : dataSet->samples)
     {
-        if(!dataSet->visible(s.sampleId))
+        if (!dataSet->visible(s.sampleId))
         {
             continue;
         }
-        else if(dataSet->selected(s.sampleId))
+        else if (dataSet->selected(s.sampleId))
         {
             col = redVec;
             col.setW(selOpacity);
@@ -513,22 +522,23 @@ void PCVizWidget::recalcLines(int dirtyAxis)
             col = dataColor;
             col.setW(unselOpacity);
         }
-        
-        for(i=0; i<numDimensions-1; i++)
+
+        for (i = 0; i < numDimensions - 1; i++)
         {
-            if(dirtyAxis != -1  && i != dirtyAxis && i != dirtyAxis-1)
+            if (dirtyAxis != -1 && i != dirtyAxis && i != dirtyAxis - 1)
                 continue;
 
-            axis = axesOrder[i];
-            nextAxis = axesOrder[i+1];
+            axis = axesOrder.indexOf(i);
 
-            float orig_aVal = dataSet->GetSampleAttribByIndex(&s, axis);
-            float aVal = scale(orig_aVal,dimMins[axis],dimMaxes[axis],0,1);
-            a = QVector2D(axesPositions[axis],aVal);
+            int nextAxis = axesOrder.indexOf(i + 1);
 
-            float orig_bVal = dataSet->GetSampleAttribByIndex(&s, nextAxis);
-            float bVal = scale(orig_bVal,dimMins[nextAxis],dimMaxes[nextAxis],0,1);
-            b = QVector2D(axesPositions[nextAxis],bVal);
+            float orig_aVal = dataSet->GetSampleAttribByIndex(&s, axesDataIndex[axis]);
+            float aVal = scale(orig_aVal, dimMins[axis], dimMaxes[axis], 0, 1);
+            a = QVector2D(axesPositions[axis], aVal);
+
+            float orig_bVal = dataSet->GetSampleAttribByIndex(&s, axesDataIndex[nextAxis]);
+            float bVal = scale(orig_bVal, dimMins[nextAxis], dimMaxes[nextAxis], 0, 1);
+            b = QVector2D(axesPositions[nextAxis], bVal);
 
             verts.push_back(a.x());
             verts.push_back(a.y());
@@ -546,6 +556,14 @@ void PCVizWidget::recalcLines(int dirtyAxis)
             colors.push_back(col.z());
             colors.push_back(col.w());
         }
+    }
+
+    
+
+    if(TIME_LOGGING){
+        milliseconds msEnd = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
+        auto elapsed = msEnd - msStart;
+        std::cerr << "recalc lines took " << elapsed.count() << " milliseconds created " << verts.size() << " vertices\n";
     }
     //
     // for(p=dataSet->begin, elem=0; p!=dataSet->end; p+=numDimensions, elem++)
@@ -628,14 +646,14 @@ void PCVizWidget::visibilityChangedSlot()
 
 void PCVizWidget::setSelOpacity(int val)
 {
-    selOpacity = (qreal)val/1000.0;
+    selOpacity = (qreal)val / 1000.0;
     needsRecalcLines = true;
     needsRepaint = true;
 }
 
 void PCVizWidget::setUnselOpacity(int val)
 {
-    unselOpacity = (qreal)val/1000.0;
+    unselOpacity = (qreal)val / 1000.0;
     needsRecalcLines = true;
     needsRepaint = true;
 }
@@ -649,7 +667,7 @@ void PCVizWidget::setShowHistograms(bool checked)
 void PCVizWidget::frameUpdate()
 {
     // Animate
-    if(animationAxis != -1)
+    if (animationAxis != -1)
     {
         selMins[animationAxis] += 0.005;
         selMaxes[animationAxis] += 0.005;
@@ -657,7 +675,7 @@ void PCVizWidget::frameUpdate()
         needsProcessSelection = true;
         needsRepaint = true;
 
-        if(selMaxes[animationAxis] >= 1)
+        if (selMaxes[animationAxis] >= 1)
         {
             endAnimation();
             needsProcessSelection = false;
@@ -665,32 +683,32 @@ void PCVizWidget::frameUpdate()
     }
 
     // Necessary updates
-    if(needsProcessData)
+    if (needsProcessData)
     {
         processData();
         needsProcessData = false;
     }
-    if(needsProcessSelection)
+    if (needsProcessSelection)
     {
         processSelection();
         needsProcessSelection = false;
     }
-    if(needsCalcMinMaxes)
+    if (needsCalcMinMaxes)
     {
         calcMinMaxes();
         needsCalcMinMaxes = false;
     }
-    if(needsCalcHistBins)
+    if (needsCalcHistBins)
     {
         calcHistBins();
         needsCalcHistBins = false;
     }
-    if(needsRecalcLines)
+    if (needsRecalcLines)
     {
         recalcLines();
         needsRecalcLines = false;
     }
-    if(needsRepaint)
+    if (needsRepaint)
     {
         repaint();
         needsRepaint = false;
@@ -704,25 +722,25 @@ void PCVizWidget::beginAnimation()
     ElemSet selSet = dataSet->getSelectionSet();
     emptySet = false;
 
-    if(selSet.empty())
+    if (selSet.empty())
     {
         emptySet = true;
 
         selection_mode s = dataSet->selectionMode();
-        dataSet->setSelectionMode(MODE_NEW,true);
+        dataSet->setSelectionMode(MODE_NEW, true);
         dataSet->selectAll();
-        dataSet->setSelectionMode(s,true);
+        dataSet->setSelectionMode(s, true);
 
         selSet = dataSet->getSelectionSet();
     }
 
-    std::copy(selSet.begin(),selSet.end(),std::inserter(animSet,animSet.begin()));
+    std::copy(selSet.begin(), selSet.end(), std::inserter(animSet, animSet.begin()));
 
     animationAxis = getClosestAxis(contextMenuMousePos.x());
     movingAxis = -1;
 
     qreal selDelta = selMaxes[animationAxis] - selMins[animationAxis];
-    if(selDelta == 0)
+    if (selDelta == 0)
         selDelta = 0.1;
 
     selMins[animationAxis] = 0;
@@ -737,9 +755,9 @@ void PCVizWidget::endAnimation()
     animationAxis = -1;
 
     selection_mode s = dataSet->selectionMode();
-    dataSet->setSelectionMode(MODE_NEW,true);
+    dataSet->setSelectionMode(MODE_NEW, true);
 
-    if(emptySet)
+    if (emptySet)
     {
         dataSet->deselectAll();
     }
@@ -748,26 +766,28 @@ void PCVizWidget::endAnimation()
         dataSet->selectSet(animSet);
     }
 
-    dataSet->setSelectionMode(s,true);
+    dataSet->setSelectionMode(s, true);
     animSet.clear();
 }
 
 void PCVizWidget::paintGL()
 {
+    milliseconds msStart = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
+
     glClear(GL_COLOR_BUFFER_BIT);
 
-    if(!processed)
+    if (!processed)
         return;
 
     makeCurrent();
 
-    int mx=40;
-    int my=30;
+    int mx = 40;
+    int my = 30;
 
     glViewport(mx,
                my,
-               width()-2*mx,
-               height()-2*my);
+               width() - 2 * mx,
+               height() - 2 * my);
 
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
@@ -778,145 +798,158 @@ void PCVizWidget::paintGL()
     glDisable(GL_CULL_FACE);
     glEnable(GL_MULTISAMPLE);
     glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_COLOR_ARRAY);
 
-    glVertexPointer(FLOATS_PER_POINT,GL_FLOAT,0,verts.constData());
-    glColorPointer(FLOATS_PER_COLOR,GL_FLOAT,0,colors.constData());
+    glVertexPointer(FLOATS_PER_POINT, GL_FLOAT, 0, verts.constData());
+    glColorPointer(FLOATS_PER_COLOR, GL_FLOAT, 0, colors.constData());
 
-    if(!SKIP_GL)glDrawArrays(GL_LINES,0,verts.size() / POINTS_PER_LINE);
+    if (!SKIP_GL)
+        glDrawArrays(GL_LINES, 0, verts.size() / POINTS_PER_LINE);
 
     glDisableClientState(GL_VERTEX_ARRAY);
     glDisableClientState(GL_COLOR_ARRAY);
+
+    if(TIME_LOGGING){
+        milliseconds msEnd = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
+        auto elapsed = msEnd - msStart;
+        std::cerr << "paintGL took " << elapsed.count() << " milliseconds\n";
+    }
 }
 
 void PCVizWidget::drawQtPainter(QPainter *painter)
 {
-    if(!processed)
+    if (!processed)
         return;
 
-    //painter->fillRect(this->rect(), Qt::white);
+    // painter->fillRect(this->rect(), Qt::white);
 
+    int mx = 40;
+    int my = 30;
 
-    int mx=40;
-    int my=30;
-
-    plotBBox = QRectF(mx,my,
-                      width()-mx-mx,
-                      height()-my-my);
+    plotBBox = QRectF(mx, my,
+                      width() - mx - mx,
+                      height() - my - my);
 
     // Draw axes
     QPointF a = plotBBox.bottomLeft();
     QPointF b = plotBBox.topLeft();
 
     QFontMetrics fm = painter->fontMetrics();
-    painter->setBrush(QColor(0,0,0));
-    for(int i=0; i<numDimensions; i++)
+    painter->setBrush(QColor(0, 0, 0));
+    for (int i = 0; i < numDimensions; i++)
     {
-        a.setX(plotBBox.left() + axesPositions[i]*plotBBox.width());
+        a.setX(plotBBox.left() + axesPositions[i] * plotBBox.width());
         b.setX(a.x());
 
-        painter->drawLine(a,b);
+        painter->drawLine(a, b);
 
         QString text = SampleAxes::SampleAxesNames[i];
-        //debugging text
-        text = QString("%1 : %2 : %3").arg(i).arg(axesDataIndex[i]).arg(axesOrder[i]);
-        QPointF center = b - QPointF(fm.horizontalAdvance(text)/2,15);
-        
-        painter->drawText(center,text);
-        
+        // debugging text
+        //text = QString("%1 : %2 : %3").arg(i).arg(axesDataIndex[i]).arg(axesOrder[i]);
+        QPointF center = b - QPointF(fm.horizontalAdvance(text) / 2, 15);
 
-        text = QString::number(dimMins[i],'g',2);
-        center = a - QPointF(fm.horizontalAdvance(text)/2,-10);
-        painter->drawText(center,text);
+        painter->drawText(center, text);
 
-        text = QString::number(dimMaxes[i],'g',2);
-        center = b - QPointF(fm.horizontalAdvance(text)/2,0);
-        painter->drawText(center,text);
+        text = QString::number(dimMins[i], 'g', 2);
+        center = a - QPointF(fm.horizontalAdvance(text) / 2, -10);
+        painter->drawText(center, text);
+
+        text = QString::number(dimMaxes[i], 'g', 2);
+        center = b - QPointF(fm.horizontalAdvance(text) / 2, 0);
+        painter->drawText(center, text);
     }
 
     // Draw cursor
     painter->setOpacity(1);
-    if(cursorPos.x() != -1)
+    if (cursorPos.x() != -1)
     {
-        a.setX(plotBBox.left() + axesPositions[(int)cursorPos.x()]*plotBBox.width() - 10);
+        a.setX(plotBBox.left() + axesPositions[(int)cursorPos.x()] * plotBBox.width() - 10);
         a.setY(cursorPos.y());
 
-        b.setX(plotBBox.left() + axesPositions[(int)cursorPos.x()]*plotBBox.width() + 10);
+        b.setX(plotBBox.left() + axesPositions[(int)cursorPos.x()] * plotBBox.width() + 10);
         b.setY(cursorPos.y());
 
-        painter->drawLine(a,b);
+        painter->drawLine(a, b);
     }
 
     // Draw selection boxes
     int cursorWidth = 28;
-    int halfCursorWidth = cursorWidth/2;
+    int halfCursorWidth = cursorWidth / 2;
 
     painter->setPen(QPen(Qt::yellow, 3, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
     painter->setBrush(Qt::NoBrush);
-    for(int i=0; i<numDimensions; i++)
+    for (int i = 0; i < numDimensions; i++)
     {
-        //if(selMins[i] != -1)
+        // if(selMins[i] != -1)
         {
-            a = QPointF(plotBBox.left() + axesPositions[i]*plotBBox.width() - halfCursorWidth,
-                        plotBBox.top() + plotBBox.height()*(1.0-selMins[i]));
+            a = QPointF(plotBBox.left() + axesPositions[i] * plotBBox.width() - halfCursorWidth,
+                        plotBBox.top() + plotBBox.height() * (1.0 - selMins[i]));
             b = QPointF(a.x() + cursorWidth,
-                        plotBBox.top() + plotBBox.height()*(1.0-selMaxes[i]));
+                        plotBBox.top() + plotBBox.height() * (1.0 - selMaxes[i]));
 
-            painter->drawRect(QRectF(a,b));
+            painter->drawRect(QRectF(a, b));
         }
     }
 
-    if(showHistograms)
+    if (showHistograms)
     {
         // Draw histograms
         a = plotBBox.bottomLeft();
         b = plotBBox.topLeft();
 
         painter->setPen(Qt::NoPen);
-        painter->setBrush(QColor(31,120,180));
+        painter->setBrush(QColor(31, 120, 180));
         painter->setOpacity(0.7);
 
-        for(int i=0; i<numDimensions; i++)
+        for (int i = 0; i < numDimensions; i++)
         {
-            a.setX(plotBBox.left() + axesPositions[i]*plotBBox.width());
+            a.setX(plotBBox.left() + axesPositions[i] * plotBBox.width());
             b.setX(a.x());
 
-            for(int j=0; j<numHistBins; j++)
+            for (int j = 0; j < numHistBins; j++)
             {
-                qreal histTop = a.y()-(j+1)*(plotBBox.height()/numHistBins);
-                qreal histLeft = a.x();//-30*histVals[i][j];
-                qreal histBottom = a.y()-(j)*(plotBBox.height()/numHistBins);
-                qreal histRight = a.x()+60*histVals[i][j];
-                painter->drawRect(QRectF(QPointF(histLeft,histTop),QPointF(histRight,histBottom)));
+                qreal histTop = a.y() - (j + 1) * (plotBBox.height() / numHistBins);
+                qreal histLeft = a.x(); //-30*histVals[i][j];
+                qreal histBottom = a.y() - (j) * (plotBBox.height() / numHistBins);
+                qreal histRight = a.x() + 60 * histVals[i][j];
+                painter->drawRect(QRectF(QPointF(histLeft, histTop), QPointF(histRight, histBottom)));
             }
 
-            painter->drawLine(a,b);
+            painter->drawLine(a, b);
         }
     }
 }
 
-void PCVizWidget::distributeAxes(){
-    for(int i = 0; i < numDimensions; i++){
-        axesPositions[i] = axesOrder[i]*(1.0/(numDimensions-1));
+void PCVizWidget::distributeAxes()
+{
+    for (int i = 0; i < numDimensions; i++)
+    {
+        axesPositions[i] = axesOrder[i] * (1.0 / (numDimensions - 1));
     }
 }
 
-void PCVizWidget::orderByPosition(){
+void PCVizWidget::orderByPosition()
+{
 
-    for(int i = 0; i < numDimensions; i++){
+    for (int i = 0; i < numDimensions; i++)
+    {
         axesOrder[i] = -1;
     }
 
-    for(int i = 0; i < numDimensions; i++){
+    for (int i = 0; i < numDimensions; i++)
+    {
         int smallestIndex = -1;
         float smallestX = INFINITY;
 
-        for(int j = 0; j < numDimensions; j++){
-            if(axesOrder[j] < 0){
-                if(axesPositions[j] < smallestX){
+        for (int j = 0; j < numDimensions; j++)
+        {
+            if (axesOrder[j] < 0)
+            {
+                if (axesPositions[j] < smallestX)
+                {
                     smallestX = axesPositions[j];
                     smallestIndex = j;
                 }

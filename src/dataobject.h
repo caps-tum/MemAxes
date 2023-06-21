@@ -197,6 +197,10 @@ private:
     void collectTopoSamples();
     int parseCSVFile(QString dataFileName);
     int DecodeDataSource(QString data_src_str);
+    long long* sampleMatrix;
+    vector<string> sourceFiles;
+    vector<string> attributeNames;
+
     
 public:
     // Selection & Visibility

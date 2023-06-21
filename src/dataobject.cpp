@@ -38,6 +38,8 @@
 
 #include "dataobject.h"
 #include "parseUtil.h"
+#include "chrono"
+#include "fstream"
 
 #include <iostream>
 #include <algorithm>
@@ -45,6 +47,8 @@
 
 #include <QFile>
 #include <QTextStream>
+
+using namespace chrono;
 
 DataObject::DataObject()
 {
@@ -658,8 +662,11 @@ int DataObject::numberOfColumns(){
 
 int DataObject::parseCSVFile(QString dataFileName)
 {
+     milliseconds msStart = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
     // Open the file
     QFile dataFile(dataFileName);
+
+    
 
     if (!dataFile.open(QIODevice::ReadOnly | QIODevice::Text))
         return -1;
@@ -687,10 +694,35 @@ int DataObject::parseCSVFile(QString dataFileName)
     // yDim = this->meta.indexOf("yidx");
     // zDim = this->meta.indexOf("zidx");
 
+    //adapted from https://stackoverflow.com/questions/3482064/counting-the-number-of-lines-in-a-text-file
+    int numSamples = 0;
+    std::string stringline = "";
+    std::ifstream lengthReader(dataFileName.toStdString());
+
+    while (std::getline(lengthReader, stringline))
+        if(stringline != "")++numSamples;
+    //subtract header line
+    numSamples--;
+
+
+
     QVector<QString> varVec;
     QVector<QString> sourceVec;
     QVector<QString> instrVec;
     header = line.split(',');
+
+    //allocate sample matrix
+    sampleMatrix = (long long *)malloc(sizeof(long long) * header.length() * numSamples);
+    
+    //Get attribute names
+    for(int i = 0; i < header.length(); i++){
+        attributeNames.push_back(header[i].toStdString());
+    }
+
+    for(int i = 0; i < SampleAxes::SampleAxesNames.length(); i++){
+        attributeNames[i] = SampleAxes::SampleAxesNames[i].toStdString();
+    }
+
     ElemIndex numHeaderDimensions = header.size();
 
     // Get data
@@ -858,6 +890,10 @@ int DataObject::parseCSVFile(QString dataFileName)
 
     this->allocate();
 
+    milliseconds msEnd = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
+    auto elapsedTotal = msEnd - msStart;
+    std::cerr << "parsing CSV file took " << elapsedTotal.count() << "\n";
+
     return 0;
 }
 
@@ -882,6 +918,9 @@ void DataObject::setSelectionMode(selection_mode mode, bool silent)
             break;
     }
     con->log(selcmd);
+
+
+    
 }
 
 long long DataObject::GetSampleAttribByIndex(Sample* s, int attrib_idx)
