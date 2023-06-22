@@ -198,6 +198,8 @@ private:
     int parseCSVFile(QString dataFileName);
     int DecodeDataSource(QString data_src_str);
     long long* sampleMatrix;
+    int numSamples;
+    int numAttributes;
     vector<string> sourceFiles;
     vector<string> attributeNames;
 
@@ -234,6 +236,7 @@ public:
 
     // Calculated statistics
     void calcStatistics();
+    int getNumberOfSamples();
     // void constructSortedLists();
 
     // qreal at(int i, int d) const { return vals[i*numDimensions+d]; }

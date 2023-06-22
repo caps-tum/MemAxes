@@ -48,7 +48,7 @@
 #include "chrono"
 
 #define SNAPPING true
-#define SKIP_GL false
+#define SKIP_GL true
 #define TIME_LOGGING true
 
 using namespace std::chrono;
@@ -216,7 +216,34 @@ int PCVizWidget::addHistogram(int index)
         return -1;
     }
 
-    // TODO
+
+
+    axesDataIndex.push_back(index);
+    axesOrder.push_back(axesOrder.length());
+    axesPositions.push_back(10000);
+
+    QVector<qreal> nBin;
+    histVals.push_back(nBin);
+    histVals[histVals.length() - 1].resize(numHistBins);
+    histVals[histVals.length() - 1].fill(0);
+
+    dimMins.push_back(std::numeric_limits<double>::max());
+    dimMaxes.push_back(std::numeric_limits<double>::min());
+
+    histMaxVals.push_back(0);
+
+    selMins.push_back(-1);
+    selMaxes.push_back(-1);
+
+    numDimensions++;
+
+    needsRecalcLines = true;
+    needsCalcHistBins = true;
+    needsCalcMinMaxes = true;
+
+    orderByPosition();
+    distributeAxes();
+    needsRepaint = true;
 
     return 0;
 }
@@ -846,7 +873,7 @@ void PCVizWidget::drawQtPainter(QPainter *painter)
 
         painter->drawLine(a, b);
 
-        QString text = SampleAxes::SampleAxesNames[i];
+        QString text = SampleAxes::SampleAxesNames[axesDataIndex[i]];
         // debugging text
         //text = QString("%1 : %2 : %3").arg(i).arg(axesDataIndex[i]).arg(axesOrder[i]);
         QPointF center = b - QPointF(fm.horizontalAdvance(text) / 2, 15);

@@ -695,7 +695,7 @@ int DataObject::parseCSVFile(QString dataFileName)
     // zDim = this->meta.indexOf("zidx");
 
     //adapted from https://stackoverflow.com/questions/3482064/counting-the-number-of-lines-in-a-text-file
-    int numSamples = 0;
+    numSamples = 0;
     std::string stringline = "";
     std::ifstream lengthReader(dataFileName.toStdString());
 
@@ -724,7 +724,7 @@ int DataObject::parseCSVFile(QString dataFileName)
     }
 
     ElemIndex numHeaderDimensions = header.size();
-
+    numAttributes = header.size();
     // Get data
     while(!dataStream.atEnd())
     {
@@ -783,11 +783,19 @@ int DataObject::parseCSVFile(QString dataFileName)
             s.latency = lineValues[header.indexOf("ibs_dc_miss_lat")].toLongLong() + ibsBaseLatency;
         }
 
+        //write MemAxes standard info to matrix
+        for(int i = 0; i < 19; i++){
+            sampleMatrix[i * header.length() + elemid] = GetSampleAttribByIndex(&s, i);
+        }
+
+        //ibs and additional info to matrix
         for(int i = 19; i < header.length(); i++){
             string s = lineValues[i].toStdString();
             long long r = 0;
             if(s != "(null)"){
+                //TODO: find smarter way to recognize attributes with hex values than hardcoding
                 if(i == 29 || i == 70 || i == 71){
+                    //do hex conversion
                     r = std::stoull(s, nullptr, 16);
                 }else r = std::stoll(s);
             }
@@ -983,10 +991,14 @@ long long DataObject::GetSampleAttribByIndex(Sample* s, int attrib_idx)
 long long DataObject::GetSampleAttribByIndex(int sampleId, int attrib_idx)
 {
 
-    if(sampleId >= samples.size())
+    if(sampleId >= numSamples || sampleId < 0 || attrib_idx < 0 || attrib_idx > numAttributes)
         return -999999999;
+    
+    /*
     Sample s = samples[sampleId];
     return GetSampleAttribByIndex(&s,attrib_idx);
+    */
+    return sampleMatrix[attrib_idx * numSamples + sampleId];
 }
 
 void DataObject::calcStatistics()
@@ -1225,4 +1237,8 @@ qreal distanceHardware(DataObject *d, ElemSet *s1, ElemSet *s2)
     dist = sqrt(dist);
 
     return dist;
+}
+
+int DataObject::getNumberOfSamples(){
+    return numSamples;
 }
