@@ -48,7 +48,7 @@
 #include "chrono"
 
 #define SNAPPING true
-#define SKIP_GL true
+#define SKIP_GL false
 #define TIME_LOGGING true
 
 using namespace std::chrono;
@@ -215,8 +215,6 @@ int PCVizWidget::addHistogram(int index)
     {
         return -1;
     }
-
-
 
     axesDataIndex.push_back(index);
     axesOrder.push_back(axesOrder.length());
@@ -427,13 +425,14 @@ void PCVizWidget::calcMinMaxes()
     dimMins.fill(std::numeric_limits<double>::max());
     dimMaxes.fill(std::numeric_limits<double>::min());
 
-    for (Sample s : dataSet->samples)
+    for (int s = 0; s < dataSet->getNumberOfSamples(); s++)
     {
-        if (!dataSet->visible(s.sampleId))
+        if (!dataSet->visible(s))
             continue;
         for (int i = 0; i < numDimensions; i++)
         {
-            long long val = dataSet->GetSampleAttribByIndex(&s, axesDataIndex[i]);
+            long long val = dataSet->GetSampleAttribByIndex(s, axesDataIndex[i]);
+
             dimMins[i] = std::min(dimMins[i], (qreal)val);
             dimMaxes[i] = std::max(dimMaxes[i], (qreal)val);
         }
@@ -460,14 +459,14 @@ void PCVizWidget::calcHistBins()
 
     histMaxVals.fill(0);
 
-    for (Sample s : dataSet->samples)
+    for (int s = 0; s < dataSet->getNumberOfSamples(); s++)
     {
-        if (dataSet->selectionDefined() && !dataSet->selected(s.sampleId))
+        if (dataSet->selectionDefined() && !dataSet->selected(s))
             continue;
 
         for (int i = 0; i < numDimensions; i++)
         {
-            long long val = dataSet->GetSampleAttribByIndex(&s, axesDataIndex[i]);
+            long long val = dataSet->GetSampleAttribByIndex(s, axesDataIndex[i]);
 
             int histBin = floor(scale(val, dimMins[i], dimMaxes[i], 0, numHistBins));
 
@@ -511,9 +510,10 @@ void PCVizWidget::calcHistBins()
 // calculates vertex positions for drawing connection lines between neighboring histograms
 void PCVizWidget::recalcLines(int dirtyAxis)
 {
+    std::cerr << "entering recalcLines\n";
     if (SKIP_GL)
         return;
-    
+
     milliseconds msStart = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
 
     QVector4D col;
@@ -533,37 +533,37 @@ void PCVizWidget::recalcLines(int dirtyAxis)
     dataSetColor.getRgbF(&Cr, &Cg, &Cb);
     QVector4D dataColor = QVector4D(Cr, Cg, Cb, 1);
 
-    for (Sample s : dataSet->samples)
+    for (i = 0; i < numDimensions - 1; i++)
     {
-        if (!dataSet->visible(s.sampleId))
-        {
+        if (dirtyAxis != -1 && i != dirtyAxis && i != dirtyAxis - 1)
             continue;
-        }
-        else if (dataSet->selected(s.sampleId))
-        {
-            col = redVec;
-            col.setW(selOpacity);
-        }
-        else
-        {
-            col = dataColor;
-            col.setW(unselOpacity);
-        }
 
-        for (i = 0; i < numDimensions - 1; i++)
+        axis = axesOrder.indexOf(i);
+
+        int nextAxis = axesOrder.indexOf(i + 1);
+
+        for (int s = 0; s < dataSet->getNumberOfSamples(); s++)
         {
-            if (dirtyAxis != -1 && i != dirtyAxis && i != dirtyAxis - 1)
+            if (!dataSet->visible(s))
+            {
                 continue;
+            }
+            else if (dataSet->selected(s))
+            {
+                col = redVec;
+                col.setW(selOpacity);
+            }
+            else
+            {
+                col = dataColor;
+                col.setW(unselOpacity);
+            }
 
-            axis = axesOrder.indexOf(i);
-
-            int nextAxis = axesOrder.indexOf(i + 1);
-
-            float orig_aVal = dataSet->GetSampleAttribByIndex(&s, axesDataIndex[axis]);
+            float orig_aVal = dataSet->GetSampleAttribByIndex(s, axesDataIndex[axis]);
             float aVal = scale(orig_aVal, dimMins[axis], dimMaxes[axis], 0, 1);
             a = QVector2D(axesPositions[axis], aVal);
 
-            float orig_bVal = dataSet->GetSampleAttribByIndex(&s, axesDataIndex[nextAxis]);
+            float orig_bVal = dataSet->GetSampleAttribByIndex(s, axesDataIndex[nextAxis]);
             float bVal = scale(orig_bVal, dimMins[nextAxis], dimMaxes[nextAxis], 0, 1);
             b = QVector2D(axesPositions[nextAxis], bVal);
 
@@ -585,9 +585,8 @@ void PCVizWidget::recalcLines(int dirtyAxis)
         }
     }
 
-    
-
-    if(TIME_LOGGING){
+    if (TIME_LOGGING)
+    {
         milliseconds msEnd = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
         auto elapsed = msEnd - msStart;
         std::cerr << "recalc lines took " << elapsed.count() << " milliseconds created " << verts.size() << " vertices\n";
@@ -839,10 +838,12 @@ void PCVizWidget::paintGL()
     glDisableClientState(GL_VERTEX_ARRAY);
     glDisableClientState(GL_COLOR_ARRAY);
 
-    if(TIME_LOGGING){
+    if (TIME_LOGGING)
+    {
         milliseconds msEnd = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
         auto elapsed = msEnd - msStart;
-        std::cerr << "paintGL took " << elapsed.count() << " milliseconds\n";
+        if (!SKIP_GL)
+            std::cerr << "paintGL took " << elapsed.count() << " milliseconds\n";
     }
 }
 
@@ -873,9 +874,9 @@ void PCVizWidget::drawQtPainter(QPainter *painter)
 
         painter->drawLine(a, b);
 
-        QString text = SampleAxes::SampleAxesNames[axesDataIndex[i]];
+        QString text = QString::fromStdString(dataSet->GetAttributeName(axesDataIndex[i]));
         // debugging text
-        //text = QString("%1 : %2 : %3").arg(i).arg(axesDataIndex[i]).arg(axesOrder[i]);
+        // text = QString("%1 : %2 : %3").arg(i).arg(axesDataIndex[i]).arg(axesOrder[i]);
         QPointF center = b - QPointF(fm.horizontalAdvance(text) / 2, 15);
 
         painter->drawText(center, text);

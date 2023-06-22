@@ -785,7 +785,7 @@ int DataObject::parseCSVFile(QString dataFileName)
 
         //write MemAxes standard info to matrix
         for(int i = 0; i < 19; i++){
-            sampleMatrix[i * header.length() + elemid] = GetSampleAttribByIndex(&s, i);
+            sampleMatrix[i * numSamples + elemid] = GetSampleAttribByIndex(&s, i);
         }
 
         //ibs and additional info to matrix
@@ -799,7 +799,7 @@ int DataObject::parseCSVFile(QString dataFileName)
                     r = std::stoull(s, nullptr, 16);
                 }else r = std::stoll(s);
             }
-            sampleMatrix[i*header.length() + elemid] = r;
+            sampleMatrix[i*numSamples + elemid] = r;
         }
 
 
@@ -1241,4 +1241,8 @@ qreal distanceHardware(DataObject *d, ElemSet *s1, ElemSet *s2)
 
 int DataObject::getNumberOfSamples(){
     return numSamples;
+}
+
+string DataObject::GetAttributeName(int index){
+    return attributeNames[index];
 }
