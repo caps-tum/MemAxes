@@ -237,7 +237,9 @@ public:
     // Calculated statistics
     void calcStatistics();
     int getNumberOfSamples();
+    int getNumberOfAttributes();
     string GetAttributeName(int index);
+    long long *GetSampleMatrix();
     // void constructSortedLists();
 
     // qreal at(int i, int d) const { return vals[i*numDimensions+d]; }

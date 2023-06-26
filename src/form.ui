@@ -523,6 +523,30 @@
                </property>
               </widget>
              </item>
+             <item>
+              <widget class="QRadioButton" name="firstAxis">
+               <property name="text">
+                <string>first axis</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QRadioButton" name="secondAxis">
+               <property name="text">
+                <string>second axis</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QRadioButton" name="allBins">
+               <property name="text">
+                <string>all bins</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
+               </property>
+              </widget>
+             </item>
             </layout>
            </widget>
           </item>

@@ -134,7 +134,7 @@ void CodeEditor::setLine(int line)
     cursor.movePosition(QTextCursor::Right, QTextCursor::MoveAnchor, 0);
     this->setTextCursor(cursor);
     this->centerCursor();
-    this->setFocus();
+    //this->setFocus();
 
 }
 

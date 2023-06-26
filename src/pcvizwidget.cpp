@@ -69,6 +69,11 @@ PCVizWidget::PCVizWidget(QWidget *parent)
     colorMap.push_back(QColor(255, 255, 153));
     colorMap.push_back(QColor(177, 89, 40));
 
+    QColor colStart = QColor(40,255,5);
+    QColor colEnd = QColor(255,0,0);
+
+    lineColorMap = gradientColorMap(colStart, colEnd, 256);
+
     needsCalcHistBins = true;
     needsCalcMinMaxes = true;
     needsProcessData = true;
@@ -87,10 +92,13 @@ PCVizWidget::PCVizWidget(QWidget *parent)
     animationAxis = -1;
     movingAxis = -1;
 
+    binMatrixValid = false;
+
     // Event Filters
     this->installEventFilter(this);
     this->setMouseTracking(true);
     this->setContextMenuPolicy(Qt::CustomContextMenu);
+    this->setFocusPolicy(Qt::StrongFocus);
 
     connect(this, SIGNAL(customContextMenuRequested(const QPoint &)),
             this, SLOT(showContextMenu(const QPoint &)));
@@ -160,6 +168,7 @@ void PCVizWidget::leaveEvent(QEvent *e)
 
 void PCVizWidget::mousePressEvent(QMouseEvent *mouseEvent)
 {
+    // this->setFocus();
     if (!processed)
         return;
 
@@ -340,6 +349,11 @@ bool PCVizWidget::eventFilter(QObject *obj, QEvent *event)
         }
     }
 
+    if (event->type() == QEvent::KeyPress)
+    {
+        std::cerr << "key pressed event\n";
+    }
+
     prevMousePos = mousePos;
     prevCursorPos = cursorPos;
 
@@ -454,8 +468,14 @@ void PCVizWidget::calcMinMaxes()
 
 void PCVizWidget::calcHistBins()
 {
+    milliseconds msStart = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
     if (!processed)
         return;
+
+    if (binMatrixValid)
+        free(binMatrix);
+    binMatrix = (unsigned int *)malloc(dataSet->getNumberOfAttributes() * dataSet->getNumberOfSamples() * sizeof(unsigned int));
+    binMatrixValid = true;
 
     histMaxVals.fill(0);
 
@@ -476,6 +496,7 @@ void PCVizWidget::calcHistBins()
                 histBin = 0;
 
             histVals[i][histBin] += 1;
+            binMatrix[dataSet->getNumberOfSamples() * axesDataIndex[i] + s] = histBin;
             histMaxVals[i] = std::max(histMaxVals[i], histVals[i][histBin]);
         }
     }
@@ -505,6 +526,29 @@ void PCVizWidget::calcHistBins()
     for (int i = 0; i < numDimensions; i++)
         for (int j = 0; j < numHistBins; j++)
             histVals[i][j] = scale(histVals[i][j], 0, histMaxVals[i], 0, 1);
+
+    if (TIME_LOGGING)
+    {
+        milliseconds msEnd = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
+        auto elapsed = msEnd - msStart;
+        std::cerr << "calculating hist bins took " << elapsed.count() << " milliseconds\n";
+    }
+}
+
+void matrixSpeedTest(long long *matrix, long numElements)
+{
+    long long sum = 0;
+    milliseconds msStart = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
+    for (long i = 0; i < numElements; i++)
+    {
+        sum += matrix[i];
+    }
+    if (TIME_LOGGING)
+    {
+        milliseconds msEnd = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
+        auto elapsed = msEnd - msStart;
+        std::cerr << "iterating " << numElements << " elements took " << elapsed.count() << " milliseconds\n";
+    }
 }
 
 // calculates vertex positions for drawing connection lines between neighboring histograms
@@ -527,11 +571,16 @@ void PCVizWidget::recalcLines(int dirtyAxis)
     verts.clear();
     colors.clear();
 
+    // verts.resize((numDimensions - 1) * dataSet->getNumberOfSamples() * 4);
+    // colors.resize((numDimensions - 1) * dataSet->getNumberOfSamples() * 8);
+
     QVector4D redVec = QVector4D(255, 0, 0, 255);
     QColor dataSetColor = colorMap.at(0);
     qreal Cr, Cg, Cb;
     dataSetColor.getRgbF(&Cr, &Cg, &Cb);
     QVector4D dataColor = QVector4D(Cr, Cg, Cb, 1);
+
+    col = dataColor;
 
     for (i = 0; i < numDimensions - 1; i++)
     {
@@ -539,50 +588,58 @@ void PCVizWidget::recalcLines(int dirtyAxis)
             continue;
 
         axis = axesOrder.indexOf(i);
+        unsigned int *axisStart = &binMatrix[dataSet->getNumberOfSamples() * axesDataIndex[axis]];
+        float axisPos = axesPositions[axis];
 
         int nextAxis = axesOrder.indexOf(i + 1);
+        unsigned int *nextAxisStart = &binMatrix[dataSet->getNumberOfSamples() * axesDataIndex[nextAxis]];
+        float nextAxisPos = axesPositions[nextAxis];
+
+        unsigned int correlation[numHistBins * numHistBins] = {};
+
+        unsigned int outgoings[numHistBins] = {};
 
         for (int s = 0; s < dataSet->getNumberOfSamples(); s++)
         {
-            if (!dataSet->visible(s))
-            {
-                continue;
-            }
-            else if (dataSet->selected(s))
-            {
-                col = redVec;
-                col.setW(selOpacity);
-            }
-            else
-            {
-                col = dataColor;
-                col.setW(unselOpacity);
-            }
-
-            float orig_aVal = dataSet->GetSampleAttribByIndex(s, axesDataIndex[axis]);
-            float aVal = scale(orig_aVal, dimMins[axis], dimMaxes[axis], 0, 1);
-            a = QVector2D(axesPositions[axis], aVal);
-
-            float orig_bVal = dataSet->GetSampleAttribByIndex(s, axesDataIndex[nextAxis]);
-            float bVal = scale(orig_bVal, dimMins[nextAxis], dimMaxes[nextAxis], 0, 1);
-            b = QVector2D(axesPositions[nextAxis], bVal);
-
-            verts.push_back(a.x());
-            verts.push_back(a.y());
-
-            verts.push_back(b.x());
-            verts.push_back(b.y());
-
-            colors.push_back(col.x());
-            colors.push_back(col.y());
-            colors.push_back(col.z());
-            colors.push_back(col.w());
-
-            colors.push_back(col.x());
-            colors.push_back(col.y());
-            colors.push_back(col.z());
-            colors.push_back(col.w());
+            // std::cerr << "correlation of "<< axisStart[s] << " with " << nextAxisStart[s] <<std::endl;
+            correlation[axisStart[s] * numHistBins + nextAxisStart[s]]++;
+            // std::cerr << "new value of correlation " << correlation[axisStart[s] * numHistBins + nextAxisStart[s]] << std::endl;
+            outgoings[axisStart[s]]++;
         }
+
+        for (int out = 0; out < numHistBins; out++)
+        {
+            float aVal = (float)out / (float)numHistBins;
+            for (int into = 0; into < numHistBins; into++)
+            {
+                if (correlation[out * numHistBins + into] != 0)
+                {
+                    float bVal = (float)into / (float)numHistBins;
+
+                    verts.push_back(axisPos);
+                    verts.push_back(aVal);
+
+                    verts.push_back(nextAxisPos);
+                    verts.push_back(bVal);
+
+                    QColor lcol = lineColorMap.at(correlation[out*numHistBins + into] / dataSet->getNumberOfSamples() * 256);
+                    std::cerr << lcol.green() << std::endl;
+                    //lcol = QColor(255, 0, 0);
+
+                    colors.push_back(correlation[out*numHistBins + into] / dataSet->getNumberOfSamples());
+                    colors.push_back(1 - correlation[out*numHistBins + into] / dataSet->getNumberOfSamples());
+                    colors.push_back(0);
+                    colors.push_back(1);
+
+                    colors.push_back(correlation[out*numHistBins + into] / dataSet->getNumberOfSamples());
+                    colors.push_back(1 - correlation[out*numHistBins + into] / dataSet->getNumberOfSamples());
+                    colors.push_back(0);
+                    colors.push_back(1);
+                }
+            }
+        }
+
+        
     }
 
     if (TIME_LOGGING)
@@ -590,6 +647,7 @@ void PCVizWidget::recalcLines(int dirtyAxis)
         milliseconds msEnd = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
         auto elapsed = msEnd - msStart;
         std::cerr << "recalc lines took " << elapsed.count() << " milliseconds created " << verts.size() << " vertices\n";
+        //matrixSpeedTest(dataSet->GetSampleMatrix(), dataSet->getNumberOfSamples() * dataSet->getNumberOfAttributes());
     }
     //
     // for(p=dataSet->begin, elem=0; p!=dataSet->end; p+=numDimensions, elem++)
@@ -986,4 +1044,16 @@ void PCVizWidget::orderByPosition()
 
         axesOrder[smallestIndex] = i;
     }
+}
+
+void PCVizWidget::setLineColoringAllBins(){
+    lineStyle = allBins;
+}
+
+void PCVizWidget::setLineColoringFirstAxis(){
+    lineStyle = firstAxis;
+}
+
+void PCVizWidget::setLineColoringSecondAxis(){
+    lineStyle = secondAxis;
 }

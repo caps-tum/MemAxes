@@ -44,6 +44,8 @@
 #include <QVector2D>
 #include <QVector4D>
 
+enum LineColorMode{allBins, firstAxis, secondAxis};
+
 class PCVizWidget
         : public VizWidget
 {
@@ -56,6 +58,9 @@ public:
     void recalcLines(int dirtyAxis = -1);
     int removeHistogram(int index);
     int addHistogram(int index);
+    void setLineColoringAllBins();
+    void setLineColoringFirstAxis();
+    void setLineColoringSecondAxis();
 
 signals:
     void lineSelected(int line);
@@ -81,8 +86,14 @@ protected:
 
     void orderByPosition();
 
+    
+
     void leaveEvent(QEvent *e);
     void mousePressEvent(QMouseEvent *e);
+    void keyPressEvent(QKeyEvent *e) override
+    {
+        std::cerr << "key pressed\n";
+    }
     void mouseReleaseEvent(QMouseEvent *e);
     bool eventFilter(QObject *obj, QEvent *event);
 
@@ -107,6 +118,7 @@ private:
 
     QRectF plotBBox;
     ColorMap colorMap;
+    ColorMap lineColorMap;
 
     QVector<QVector<qreal> > histVals;
     QVector<qreal> histMaxVals;
@@ -133,6 +145,9 @@ private:
 
     bool showHistograms;
 
+    unsigned int* binMatrix;
+    bool binMatrixValid;
+
     qreal firstSel;
     qreal lastSel;
 
@@ -142,6 +157,9 @@ private:
     // OpenGL
     QVector<GLfloat> verts;
     QVector<GLfloat> colors;
+
+    //line coloring
+    LineColorMode lineStyle;
 };
 
 #endif // PARALLELCOORDINATESVIZ_H

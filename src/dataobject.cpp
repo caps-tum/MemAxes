@@ -764,8 +764,7 @@ int DataObject::parseCSVFile(QString dataFileName)
         
         s.data_src = DecodeDataSource(lineValues[header.indexOf("level")]);
         
-        //IBS data src
-        
+        //IBS data src        
         if(s.data_src == -1 && header.indexOf("ibs_dc_miss") >= 0 && header.indexOf("ibs_l2_miss") >= 0){
             if(!lineValues[header.indexOf("ibs_dc_miss")].toInt() == 1){
                 s.data_src = 1; // L1 hit
@@ -1243,6 +1242,15 @@ int DataObject::getNumberOfSamples(){
     return numSamples;
 }
 
+int DataObject::getNumberOfAttributes(){
+    return attributeNames.size();
+}
+
 string DataObject::GetAttributeName(int index){
     return attributeNames[index];
 }
+
+long long * DataObject::GetSampleMatrix(){
+    return sampleMatrix;
+}
+
