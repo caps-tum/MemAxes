@@ -49,7 +49,7 @@
 
 #define SNAPPING true
 #define SKIP_GL false
-#define TIME_LOGGING true
+#define TIME_LOGGING false
 
 using namespace std::chrono;
 
@@ -69,8 +69,8 @@ PCVizWidget::PCVizWidget(QWidget *parent)
     colorMap.push_back(QColor(255, 255, 153));
     colorMap.push_back(QColor(177, 89, 40));
 
-    QColor colStart = QColor(40,255,5);
-    QColor colEnd = QColor(255,0,0);
+    QColor colStart = QColor(40, 255, 5);
+    QColor colEnd = QColor(255, 0, 0);
 
     lineColorMap = gradientColorMap(colStart, colEnd, 256);
 
@@ -278,6 +278,11 @@ void PCVizWidget::mouseReleaseEvent(QMouseEvent *event)
         endAnimation();
 }
 
+float PCVizWidget::yToSelection(float y)
+{
+    return 1.0 - scale(y, plotBBox.top(), plotBBox.bottom(), 0, 1);
+}
+
 bool PCVizWidget::eventFilter(QObject *obj, QEvent *event)
 {
     Q_UNUSED(obj);
@@ -299,8 +304,8 @@ bool PCVizWidget::eventFilter(QObject *obj, QEvent *event)
             qreal selmin = std::min(firstSel, lastSel);
             qreal selmax = std::max(firstSel, lastSel);
 
-            selMins[selectionAxis] = 1.0 - scale(selmax, plotBBox.top(), plotBBox.bottom(), 0, 1);
-            selMaxes[selectionAxis] = 1.0 - scale(selmin, plotBBox.top(), plotBBox.bottom(), 0, 1);
+            selMins[selectionAxis] = yToSelection(selmax);
+            selMaxes[selectionAxis] = yToSelection(selmin);
 
             needsRepaint = true;
         }
@@ -551,6 +556,11 @@ void matrixSpeedTest(long long *matrix, long numElements)
     }
 }
 
+bool orderByFirst(tuple<float, float, float> a, tuple<float, float, float> b)
+{
+    return (get<0>(a) < get<0>(b));
+}
+
 // calculates vertex positions for drawing connection lines between neighboring histograms
 void PCVizWidget::recalcLines(int dirtyAxis)
 {
@@ -582,64 +592,162 @@ void PCVizWidget::recalcLines(int dirtyAxis)
 
     col = dataColor;
 
-    for (i = 0; i < numDimensions - 1; i++)
+    for (int dim = 0; dim < numDimensions - 1; dim++)
     {
         if (dirtyAxis != -1 && i != dirtyAxis && i != dirtyAxis - 1)
             continue;
 
-        axis = axesOrder.indexOf(i);
+        axis = axesOrder.indexOf(dim);
         unsigned int *axisStart = &binMatrix[dataSet->getNumberOfSamples() * axesDataIndex[axis]];
         float axisPos = axesPositions[axis];
 
-        int nextAxis = axesOrder.indexOf(i + 1);
+        int nextAxis = axesOrder.indexOf(dim + 1);
         unsigned int *nextAxisStart = &binMatrix[dataSet->getNumberOfSamples() * axesDataIndex[nextAxis]];
         float nextAxisPos = axesPositions[nextAxis];
 
-        unsigned int correlation[numHistBins * numHistBins] = {};
+        int correlation[numHistBins * numHistBins] = {};
 
-        unsigned int outgoings[numHistBins] = {};
 
         for (int s = 0; s < dataSet->getNumberOfSamples(); s++)
         {
-            // std::cerr << "correlation of "<< axisStart[s] << " with " << nextAxisStart[s] <<std::endl;
             correlation[axisStart[s] * numHistBins + nextAxisStart[s]]++;
-            // std::cerr << "new value of correlation " << correlation[axisStart[s] * numHistBins + nextAxisStart[s]] << std::endl;
-            outgoings[axisStart[s]]++;
         }
+
+        // calculation of transformation parameters
+        float scaleTop[numHistBins * numHistBins];
+        float scaleBottom[numHistBins * numHistBins];
+        switch (lineStyle)
+        {
+        case allBins:
+        {
+            // calculate min and max of all correlations
+            int allCorrelationsMax = 0;
+            int allCorrelationsMin = INT_MAX;
+            for (int i = 0; i < numHistBins * numHistBins; i++)
+            {
+                allCorrelationsMax = std::max(correlation[i], allCorrelationsMax);
+                if (correlation[i] != 0)
+                    allCorrelationsMin = std::min(correlation[i], allCorrelationsMax);
+            }
+            if (allCorrelationsMin == allCorrelationsMax)
+                allCorrelationsMin = 0;
+            float fillMax = allCorrelationsMax;
+            float fillMin = allCorrelationsMin;
+            for (int k = 0; k < numHistBins * numHistBins; k++)
+            {
+                scaleTop[k] = fillMax;
+                scaleBottom[k] = fillMin;
+            }
+        }
+        break;
+        case firstAxis:
+        {
+            // outgoing bin id
+            for (int i = 0; i < numHistBins; i++)
+            {
+                if (histVals[axis][i] == 0)
+                    continue;
+                // calculate min and max
+                int corMax = 0;
+                int corMin = INT_MAX;
+                for (int j = 0; j < numHistBins; j++)
+                {
+                    corMax = std::max((int)correlation[i * numHistBins + j], corMax);
+                    if (correlation[i * numHistBins + j] != 0)
+                        corMin = std::min((int)correlation[i * numHistBins + j], corMin);
+                }
+                if (corMin == corMax)
+                    corMin = 0;
+                float fillMax = corMax;
+                float fillMin = corMin;
+                std::fill_n(scaleTop + numHistBins * i, numHistBins, corMax);
+                std::fill_n(scaleBottom + numHistBins * i, numHistBins, corMin);
+            }
+        }
+        break;
+        case secondAxis:
+        {
+            // incoming bin id
+            for (int i = 0; i < numHistBins; i++)
+            {
+                if (histVals[nextAxis][i] == 0)
+                    continue;
+                // calculate min and max
+                int corMax = 0;
+                int corMin = INT_MAX;
+                for (int j = 0; j < numHistBins; j++)
+                {
+                    corMax = std::max((int)correlation[j * numHistBins + i], corMax);
+                    if (correlation[j * numHistBins + i] != 0)
+                        corMin = std::min((int)correlation[j * numHistBins + i], corMin);
+                }
+                if (corMin == corMax)
+                    corMin = 0;
+
+                for (int j = 0; j < numHistBins; j++)
+                {
+                    scaleTop[j * numHistBins + i] = corMax;
+                    scaleBottom[j * numHistBins + i] = corMin;
+                }
+
+                if (corMin == corMax)
+                    corMin = 0;
+            }
+        }
+        break;
+
+        default:
+            break;
+        }
+
+        // line tuple: progress y1, y2
+        vector<tuple<float, float, float>> lines;
 
         for (int out = 0; out < numHistBins; out++)
         {
-            float aVal = (float)out / (float)numHistBins;
+            if (histVals[axis][out] == 0)
+                continue;
+            float aVal = (float)out / (float)numHistBins + .5 / numHistBins;
+
             for (int into = 0; into < numHistBins; into++)
             {
                 if (correlation[out * numHistBins + into] != 0)
                 {
-                    float bVal = (float)into / (float)numHistBins;
+                    float bVal = (float)into / (float)numHistBins + .5 / numHistBins;
 
-                    verts.push_back(axisPos);
-                    verts.push_back(aVal);
-
-                    verts.push_back(nextAxisPos);
-                    verts.push_back(bVal);
-
-                    QColor lcol = lineColorMap.at(correlation[out*numHistBins + into] / dataSet->getNumberOfSamples() * 256);
-                    std::cerr << lcol.green() << std::endl;
-                    //lcol = QColor(255, 0, 0);
-
-                    colors.push_back(correlation[out*numHistBins + into] / dataSet->getNumberOfSamples());
-                    colors.push_back(1 - correlation[out*numHistBins + into] / dataSet->getNumberOfSamples());
-                    colors.push_back(0);
-                    colors.push_back(1);
-
-                    colors.push_back(correlation[out*numHistBins + into] / dataSet->getNumberOfSamples());
-                    colors.push_back(1 - correlation[out*numHistBins + into] / dataSet->getNumberOfSamples());
-                    colors.push_back(0);
-                    colors.push_back(1);
+                    float progress = scale(correlation[out * numHistBins + into], scaleBottom[out * numHistBins + into], scaleTop[out * numHistBins + into], 0, 1);
+                    /*
+                    if (axis == 1)
+                        std::cerr << "bottom: " << scaleBottom[out * numHistBins + into] << " top: " << scaleTop[out * numHistBins + into] << " correlation strength: " << correlation[out * numHistBins + into] << " progress: " << progress << std::endl;
+                    */
+                    lines.push_back(make_tuple(progress, aVal, bVal));
                 }
             }
         }
 
-        
+        std::sort(lines.begin(), lines.end(), orderByFirst);
+
+        for (tuple<float, float, float> line : lines)
+        {
+            verts.push_back(axisPos);
+            verts.push_back(std::get<1>(line));
+
+            verts.push_back(nextAxisPos);
+            verts.push_back(std::get<2>(line));
+            float progress = std::get<0>(line);
+            float r = progress;
+            float g = 1 - progress;
+            float b = 0;
+            colors.push_back(r);
+            colors.push_back(g);
+            colors.push_back(b);
+            colors.push_back(1);
+
+            colors.push_back(r);
+            colors.push_back(g);
+            colors.push_back(b);
+            colors.push_back(1);
+        }
     }
 
     if (TIME_LOGGING)
@@ -647,7 +755,7 @@ void PCVizWidget::recalcLines(int dirtyAxis)
         milliseconds msEnd = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
         auto elapsed = msEnd - msStart;
         std::cerr << "recalc lines took " << elapsed.count() << " milliseconds created " << verts.size() << " vertices\n";
-        //matrixSpeedTest(dataSet->GetSampleMatrix(), dataSet->getNumberOfSamples() * dataSet->getNumberOfAttributes());
+        // matrixSpeedTest(dataSet->GetSampleMatrix(), dataSet->getNumberOfSamples() * dataSet->getNumberOfAttributes());
     }
     //
     // for(p=dataSet->begin, elem=0; p!=dataSet->end; p+=numDimensions, elem++)
@@ -878,7 +986,13 @@ void PCVizWidget::paintGL()
     glOrtho(0.0, 1.0, 0.0, 1.0, 0, 1);
 
     glShadeModel(GL_FLAT);
-    glDisable(GL_DEPTH_TEST);
+    //keep enabled to use the alpha channel for reducing the brightness of graph links
+    //glDisable(GL_DEPTH_TEST);
+    
+    //make lines nicely antialiased
+    glEnable(GL_LINE_SMOOTH);
+    glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+
     glDisable(GL_CULL_FACE);
     glEnable(GL_MULTISAMPLE);
     glEnable(GL_BLEND);
@@ -958,6 +1072,7 @@ void PCVizWidget::drawQtPainter(QPainter *painter)
         b.setX(plotBBox.left() + axesPositions[(int)cursorPos.x()] * plotBBox.width() + 10);
         b.setY(cursorPos.y());
 
+        // std::cerr << cursorPos.y() << std::endl;
         painter->drawLine(a, b);
     }
 
@@ -1046,14 +1161,23 @@ void PCVizWidget::orderByPosition()
     }
 }
 
-void PCVizWidget::setLineColoringAllBins(){
+void PCVizWidget::setLineColoringAllBins()
+{
     lineStyle = allBins;
+    needsRecalcLines = true;
+    needsRepaint = true;
 }
 
-void PCVizWidget::setLineColoringFirstAxis(){
+void PCVizWidget::setLineColoringFirstAxis()
+{
     lineStyle = firstAxis;
+    needsRecalcLines = true;
+    needsRepaint = true;
 }
 
-void PCVizWidget::setLineColoringSecondAxis(){
+void PCVizWidget::setLineColoringSecondAxis()
+{
     lineStyle = secondAxis;
+    needsRecalcLines = true;
+    needsRepaint = true;
 }

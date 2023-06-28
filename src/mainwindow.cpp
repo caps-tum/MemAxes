@@ -166,6 +166,9 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->selOpacity, SIGNAL(valueChanged(int)), parallelCoordinatesViz, SLOT(setSelOpacity(int)));
     connect(ui->unselOpacity, SIGNAL(valueChanged(int)), parallelCoordinatesViz, SLOT(setUnselOpacity(int)));
     connect(ui->histogramBox, SIGNAL(clicked(bool)), parallelCoordinatesViz, SLOT(setShowHistograms(bool)));
+    connect(ui->allBins, SIGNAL(toggled(bool)), parallelCoordinatesViz, SLOT(setLineColoringAllBins()));
+    connect(ui->firstAxis, SIGNAL(toggled(bool)), parallelCoordinatesViz, SLOT(setLineColoringFirstAxis()));
+    connect(ui->secondAxis, SIGNAL(toggled(bool)), parallelCoordinatesViz, SLOT(setLineColoringSecondAxis()));
 
     vizWidgets.push_back(parallelCoordinatesViz);
     pcViz = parallelCoordinatesViz;

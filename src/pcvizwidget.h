@@ -58,9 +58,7 @@ public:
     void recalcLines(int dirtyAxis = -1);
     int removeHistogram(int index);
     int addHistogram(int index);
-    void setLineColoringAllBins();
-    void setLineColoringFirstAxis();
-    void setLineColoringSecondAxis();
+
 
 signals:
     void lineSelected(int line);
@@ -76,6 +74,10 @@ public slots:
     void setShowHistograms(bool checked);
     void beginAnimation();
     void endAnimation();
+
+    void setLineColoringAllBins();
+    void setLineColoringFirstAxis();
+    void setLineColoringSecondAxis();
 
 protected:
     void processData();
@@ -102,6 +104,7 @@ private:
     void processSelection();
     void calcMinMaxes();
     void calcHistBins();
+    float yToSelection(float y);
 
 private:
     bool needsRecalcLines;
