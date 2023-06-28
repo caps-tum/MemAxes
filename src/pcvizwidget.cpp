@@ -49,7 +49,7 @@
 
 #define SNAPPING true
 #define SKIP_GL false
-#define TIME_LOGGING false
+#define TIME_LOGGING true
 
 using namespace std::chrono;
 
@@ -91,6 +91,9 @@ PCVizWidget::PCVizWidget(QWidget *parent)
     selectionAxis = -1;
     animationAxis = -1;
     movingAxis = -1;
+
+    axisMouseOver = -1;
+    binMouseOver = -1;
 
     binMatrixValid = false;
 
@@ -312,6 +315,23 @@ bool PCVizWidget::eventFilter(QObject *obj, QEvent *event)
 
         // Set cursor position
         int axis = getClosestAxis(mousePos.x());
+
+        axisMouseOver = axis;
+        float ySel = yToSelection(mousePos.y());
+        std::cerr << "ySel: " << ySel << std::endl;
+        if (ySel < 1 && ySel >= 0)
+        {
+            binMouseOver = ySel * numHistBins;
+            needsRecalcLines = true;
+        }
+        else
+        {
+            if (binMouseOver >= 0)
+            {
+                binMouseOver = -1;
+                needsRecalcLines = true;
+            }
+        }
 
         cursorPos.setX(axis);
         cursorPos.setY(std::max((int)mousePos.y(), (int)plotBBox.top()));
@@ -592,6 +612,11 @@ void PCVizWidget::recalcLines(int dirtyAxis)
 
     col = dataColor;
 
+    unsigned int *condAxisStart = binMatrix;
+    if (axisMouseOver >= 0)
+        condAxisStart = &binMatrix[dataSet->getNumberOfSamples() * axisMouseOver];
+    std::cerr << axisMouseOver << " : " << binMouseOver << std::endl;
+
     for (int dim = 0; dim < numDimensions - 1; dim++)
     {
         if (dirtyAxis != -1 && i != dirtyAxis && i != dirtyAxis - 1)
@@ -607,10 +632,11 @@ void PCVizWidget::recalcLines(int dirtyAxis)
 
         int correlation[numHistBins * numHistBins] = {};
 
-
         for (int s = 0; s < dataSet->getNumberOfSamples(); s++)
         {
-            correlation[axisStart[s] * numHistBins + nextAxisStart[s]]++;
+            if (binMouseOver < 0 || condAxisStart[s] == binMouseOver)
+                correlation[axisStart[s] * numHistBins + nextAxisStart[s]]++;
+            // std::cerr << "survived one interation\n";
         }
 
         // calculation of transformation parameters
@@ -716,10 +742,10 @@ void PCVizWidget::recalcLines(int dirtyAxis)
                     float bVal = (float)into / (float)numHistBins + .5 / numHistBins;
 
                     float progress = scale(correlation[out * numHistBins + into], scaleBottom[out * numHistBins + into], scaleTop[out * numHistBins + into], 0, 1);
-                    /*
-                    if (axis == 1)
+/*
+                    if (axis == 14)
                         std::cerr << "bottom: " << scaleBottom[out * numHistBins + into] << " top: " << scaleTop[out * numHistBins + into] << " correlation strength: " << correlation[out * numHistBins + into] << " progress: " << progress << std::endl;
-                    */
+*/
                     lines.push_back(make_tuple(progress, aVal, bVal));
                 }
             }
@@ -986,10 +1012,10 @@ void PCVizWidget::paintGL()
     glOrtho(0.0, 1.0, 0.0, 1.0, 0, 1);
 
     glShadeModel(GL_FLAT);
-    //keep enabled to use the alpha channel for reducing the brightness of graph links
-    //glDisable(GL_DEPTH_TEST);
-    
-    //make lines nicely antialiased
+    // keep enabled to use the alpha channel for reducing the brightness of graph links
+    // glDisable(GL_DEPTH_TEST);
+
+    // make lines nicely antialiased
     glEnable(GL_LINE_SMOOTH);
     glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
 

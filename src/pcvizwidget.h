@@ -146,6 +146,9 @@ private:
     int animationAxis;
     int movingAxis;
 
+    int binMouseOver;
+    int axisMouseOver;
+
     bool showHistograms;
 
     unsigned int* binMatrix;
