@@ -49,7 +49,7 @@
 
 #define SNAPPING true
 #define SKIP_GL false
-#define TIME_LOGGING true
+#define TIME_LOGGING false
 
 using namespace std::chrono;
 
@@ -84,7 +84,7 @@ PCVizWidget::PCVizWidget(QWidget *parent)
     selOpacity = 0.4;
     unselOpacity = 0.1;
 
-    numHistBins = 100;
+    numHistBins = 50;
     showHistograms = true;
 
     cursorPos.setX(-1);
@@ -95,7 +95,10 @@ PCVizWidget::PCVizWidget(QWidget *parent)
     axisMouseOver = -1;
     binMouseOver = -1;
 
+    binsInitialize = true;
+
     binMatrixValid = false;
+    lineStyle = allBins;
 
     // Event Filters
     this->installEventFilter(this);
@@ -318,10 +321,12 @@ bool PCVizWidget::eventFilter(QObject *obj, QEvent *event)
 
         axisMouseOver = axis;
         float ySel = yToSelection(mousePos.y());
-        std::cerr << "ySel: " << ySel << std::endl;
-        if (ySel < 1 && ySel >= 0)
+        // std::cerr << "ySel: " << ySel << std::endl;
+        if (ySel < 1 && ySel >= 0 && mousePos.x() > plotBBox.left() && mousePos.x() < plotBBox.right())
         {
             binMouseOver = ySel * numHistBins;
+            // uncomment to show all correlations when mouse hovers over an empty bin. Deactivated because it can be irritating
+            // if(histVals[axisMouseOver][binMouseOver] == 0)binMouseOver = -1;
             needsRecalcLines = true;
         }
         else
@@ -491,16 +496,36 @@ void PCVizWidget::calcMinMaxes()
     // }
 }
 
+bool PCVizWidget::axisInteresting(int axis){
+    int populatedAxes = 0;
+    for(int i = 0; i < numHistBins; i++){
+        if(histVals[axis][i] != 0)populatedAxes++;
+    }
+    return populatedAxes > 1;
+}
+
+void PCVizWidget::eliminateEmptyAxes(){
+    int i = 0;
+    while(i < numDimensions){
+        if(axisInteresting(i))i++;
+        else removeHistogram(axesDataIndex[i]);
+        std::cerr << "this goes on forever i: "<< i << " numDimensions: " << numDimensions << "\n";
+    }
+}
+
 void PCVizWidget::calcHistBins()
 {
+
     milliseconds msStart = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
     if (!processed)
         return;
 
     if (binMatrixValid)
         free(binMatrix);
-    binMatrix = (unsigned int *)malloc(dataSet->getNumberOfAttributes() * dataSet->getNumberOfSamples() * sizeof(unsigned int));
+    binMatrix = (int *)malloc(dataSet->getNumberOfAttributes() * dataSet->getNumberOfSamples() * sizeof(int));
+    std::cerr << "allocated bin matrix of size " << (dataSet->getNumberOfAttributes() * dataSet->getNumberOfSamples()) << std::endl;
     binMatrixValid = true;
+    std::fill_n(binMatrix, dataSet->getNumberOfAttributes() * dataSet->getNumberOfSamples(), -1);
 
     histMaxVals.fill(0);
 
@@ -581,10 +606,17 @@ bool orderByFirst(tuple<float, float, float> a, tuple<float, float, float> b)
     return (get<0>(a) < get<0>(b));
 }
 
+void printVector(QVector<int> v){
+    for(int i : v){
+        std::cerr << i << ", ";
+    }
+    std::cerr << std::endl;
+}
+
 // calculates vertex positions for drawing connection lines between neighboring histograms
 void PCVizWidget::recalcLines(int dirtyAxis)
 {
-    std::cerr << "entering recalcLines\n";
+    // std::cerr << "entering recalcLines\n";
     if (SKIP_GL)
         return;
 
@@ -612,10 +644,12 @@ void PCVizWidget::recalcLines(int dirtyAxis)
 
     col = dataColor;
 
-    unsigned int *condAxisStart = binMatrix;
+    int *condAxisStart = binMatrix;
+    int condAxis = 0;
     if (axisMouseOver >= 0)
-        condAxisStart = &binMatrix[dataSet->getNumberOfSamples() * axisMouseOver];
-    std::cerr << axisMouseOver << " : " << binMouseOver << std::endl;
+        condAxis = axisMouseOver;
+        condAxisStart = &binMatrix[dataSet->getNumberOfSamples() * axesDataIndex[condAxis]];
+    //std::cerr << axisMouseOver << " : " << binMouseOver << std::endl;
 
     for (int dim = 0; dim < numDimensions - 1; dim++)
     {
@@ -623,20 +657,28 @@ void PCVizWidget::recalcLines(int dirtyAxis)
             continue;
 
         axis = axesOrder.indexOf(dim);
-        unsigned int *axisStart = &binMatrix[dataSet->getNumberOfSamples() * axesDataIndex[axis]];
+        int *axisStart = &binMatrix[dataSet->getNumberOfSamples() * axesDataIndex[axis]];
         float axisPos = axesPositions[axis];
 
         int nextAxis = axesOrder.indexOf(dim + 1);
-        unsigned int *nextAxisStart = &binMatrix[dataSet->getNumberOfSamples() * axesDataIndex[nextAxis]];
+        int *nextAxisStart = &binMatrix[dataSet->getNumberOfSamples() * axesDataIndex[nextAxis]];
         float nextAxisPos = axesPositions[nextAxis];
+
+        //printVector(axesOrder);
+        //if(axis == axesOrder.indexOf(axisMouseOver))std::cerr << "axisMouseOver" << axisMouseOver << "axis: "<< axis << " nextAxis: " << nextAxis << "condAxis: "<< condAxis << "data at Axis: " << axesDataIndex[axis] << " data at nextAxis: " << axesDataIndex[nextAxis] << " binMatrix: " << binMatrix << std::endl;
 
         int correlation[numHistBins * numHistBins] = {};
 
+        // std::cerr << "number of samples to iterate "<<(dataSet->getNumberOfSamples()) << std::endl;
+
         for (int s = 0; s < dataSet->getNumberOfSamples(); s++)
         {
-            if (binMouseOver < 0 || condAxisStart[s] == binMouseOver)
+            if ((binMouseOver < 0 || condAxisStart[s] == binMouseOver))
+            {
+                // std::cerr << "attempting to access element " << (axisStart[s] * numHistBins + axisStart[s]) << std::endl;
                 correlation[axisStart[s] * numHistBins + nextAxisStart[s]]++;
-            // std::cerr << "survived one interation\n";
+            }
+            // if(axis == 14)std::cerr << "value at 0 to 0: " << correlation[0] << " visibility : " << dataSet->selected(s) << "\n";
         }
 
         // calculation of transformation parameters
@@ -653,16 +695,15 @@ void PCVizWidget::recalcLines(int dirtyAxis)
             {
                 allCorrelationsMax = std::max(correlation[i], allCorrelationsMax);
                 if (correlation[i] != 0)
-                    allCorrelationsMin = std::min(correlation[i], allCorrelationsMax);
+                    allCorrelationsMin = std::min(correlation[i], allCorrelationsMin);
             }
             if (allCorrelationsMin == allCorrelationsMax)
                 allCorrelationsMin = 0;
-            float fillMax = allCorrelationsMax;
-            float fillMin = allCorrelationsMin;
+
             for (int k = 0; k < numHistBins * numHistBins; k++)
             {
-                scaleTop[k] = fillMax;
-                scaleBottom[k] = fillMin;
+                scaleTop[k] = allCorrelationsMax;
+                scaleBottom[k] = allCorrelationsMin;
             }
         }
         break;
@@ -723,6 +764,7 @@ void PCVizWidget::recalcLines(int dirtyAxis)
         break;
 
         default:
+            std::cerr << "something went horribly wrong\n";
             break;
         }
 
@@ -742,10 +784,10 @@ void PCVizWidget::recalcLines(int dirtyAxis)
                     float bVal = (float)into / (float)numHistBins + .5 / numHistBins;
 
                     float progress = scale(correlation[out * numHistBins + into], scaleBottom[out * numHistBins + into], scaleTop[out * numHistBins + into], 0, 1);
-/*
+                    /*
                     if (axis == 14)
                         std::cerr << "bottom: " << scaleBottom[out * numHistBins + into] << " top: " << scaleTop[out * numHistBins + into] << " correlation strength: " << correlation[out * numHistBins + into] << " progress: " << progress << std::endl;
-*/
+                    */
                     lines.push_back(make_tuple(progress, aVal, bVal));
                 }
             }
@@ -761,17 +803,28 @@ void PCVizWidget::recalcLines(int dirtyAxis)
             verts.push_back(nextAxisPos);
             verts.push_back(std::get<2>(line));
             float progress = std::get<0>(line);
-            float r = progress;
-            float g = 1 - progress;
-            float b = 0;
-            colors.push_back(r);
-            colors.push_back(g);
-            colors.push_back(b);
+
+            int h = 64.f * progress + 128.f;
+            int s = 255;
+            int l = -217.f * progress + 230.f;
+
+            // l = progress;
+
+            // if(axis = axisMouseOver)std::cerr<< "hue: " << h << "\n";
+
+            QColor lineCol = QColor(0, 0, 0);
+            lineCol.setHsl(h, s, l);
+
+            // if(axis = axisMouseOver)std::cerr << "r: " << lineCol.red() << std::endl;
+
+            colors.push_back((float)lineCol.red() / 255);
+            colors.push_back((float)lineCol.green() / 255);
+            colors.push_back((float)lineCol.blue() / 255);
             colors.push_back(1);
 
-            colors.push_back(r);
-            colors.push_back(g);
-            colors.push_back(b);
+            colors.push_back((float)lineCol.red() / 255);
+            colors.push_back((float)lineCol.green() / 255);
+            colors.push_back((float)lineCol.blue() / 255);
             colors.push_back(1);
         }
     }
@@ -921,6 +974,10 @@ void PCVizWidget::frameUpdate()
         calcHistBins();
         needsCalcHistBins = false;
     }
+    if(binsInitialize && processed){
+        eliminateEmptyAxes();
+        binsInitialize = false;
+    }
     if (needsRecalcLines)
     {
         recalcLines();
@@ -931,6 +988,7 @@ void PCVizWidget::frameUpdate()
         repaint();
         needsRepaint = false;
     }
+    
 }
 
 void PCVizWidget::beginAnimation()
@@ -992,6 +1050,8 @@ void PCVizWidget::paintGL()
 {
     milliseconds msStart = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
 
+    // uncomment for grey parallel histograms background
+    // glClearColor(.4,.4,.4,1.);
     glClear(GL_COLOR_BUFFER_BIT);
 
     if (!processed)

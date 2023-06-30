@@ -12,15 +12,14 @@ code/variables, the dataset domain, and parallel coordinates.
 
 ## Requirements
 
-MemAxes requires [Qt5](http://qt-project.org/qt5) and
-[VTK](http://www.vtk.org).  It also requires
+MemAxes requires [Qt5](http://qt-project.org/qt5).  It also requires
 [CMake](http://www.cmake.org) version 2.8.9 or higher, in order to
 build Qt5.
 
 ## Building
 
-1. Make sure that Qt5 and VTK are installed, and add their install
-   locations to the `CMAKE_PREFIX_PATH` environment variable. Ensure that Qt5OpenGL is installed.
+1. Make sure that Qt5 is installed(both compiled libraries and the dev package are required), and add their install
+   locations to the `CMAKE_PREFIX_PATH` environment variable. Ensure you have a working OpenGL environment (test by running glxgears).
 
 2. Run the following commands from the root of the MemAxes source:
    ```

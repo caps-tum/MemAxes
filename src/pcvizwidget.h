@@ -103,6 +103,8 @@ private:
     int getClosestAxis(int xval);
     void processSelection();
     void calcMinMaxes();
+    bool axisInteresting(int axis);
+    void eliminateEmptyAxes();
     void calcHistBins();
     float yToSelection(float y);
 
@@ -151,8 +153,10 @@ private:
 
     bool showHistograms;
 
-    unsigned int* binMatrix;
+    int* binMatrix;
     bool binMatrixValid;
+
+    bool binsInitialize;
 
     qreal firstSel;
     qreal lastSel;
