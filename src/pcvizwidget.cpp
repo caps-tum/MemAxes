@@ -270,11 +270,14 @@ void PCVizWidget::mouseReleaseEvent(QMouseEvent *event)
 
     if (selectionAxis != -1 && event->button() == Qt::LeftButton && lastSel == -1)
     {
+        std::cerr << "no selection\n";
         selMins[selectionAxis] = -1;
         selMaxes[selectionAxis] = -1;
     }
 
     needsProcessSelection = true;
+
+    
 
     movingAxis = -1;
     selectionAxis = -1;
@@ -349,32 +352,11 @@ bool PCVizWidget::eventFilter(QObject *obj, QEvent *event)
         if (movingAxis != -1 && mouseDelta.x() != 0)
         {
             axesPositions[movingAxis] = ((qreal)mousePos.x() - plotBBox.left()) / plotBBox.width();
-
-            // Sort moved axes
-            /*
-            bool reorder = false;
-            for(int i=0; i<numDimensions-1; i++)
-            {
-                for(int j=i+1; j<numDimensions; j++)
-                {
-                    if(axesPositions[axesOrder[j]] <
-                       axesPositions[axesOrder[i]])
-                    {
-                        int tmp = axesOrder[j];
-                        axesOrder[j] = axesOrder[i];
-                        axesOrder[i] = tmp;
-                        reorder = true;
-                    }
-                }
-            }*/
-
             orderByPosition();
-
             if (SNAPPING)
             {
                 distributeAxes();
             }
-
             needsRecalcLines = true;
         }
     }
@@ -420,7 +402,7 @@ void PCVizWidget::processSelection()
     {
         if (selMins[i] != -1)
         {
-            selDims.push_back(i);
+            selDims.push_back(axesDataIndex[i]);
             dataSelMins.push_back(lerp(selMins[i], dimMins[i], dimMaxes[i]));
             dataSelMaxes.push_back(lerp(selMaxes[i], dimMins[i], dimMaxes[i]));
         }
@@ -446,15 +428,16 @@ void PCVizWidget::processSelection()
         }
         else
         {
+            std::cerr << "attempting selectByMultiDimRange\n";
             dataSet->selectByMultiDimRange(selDims, dataSelMins, dataSelMaxes);
         }
     }
-
+    /*
     if (animationAxis == -1)
     {
         selMins.fill(-1);
         selMaxes.fill(-1);
-    }
+    }*/
 
     needsRecalcLines = true;
 
@@ -933,6 +916,11 @@ void PCVizWidget::setShowHistograms(bool checked)
 {
     showHistograms = checked;
     needsRepaint = true;
+}
+
+void PCVizWidget::resetSelection(){
+    selMins.fill(-1);
+    selMaxes.fill(-1);
 }
 
 void PCVizWidget::frameUpdate()

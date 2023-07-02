@@ -54,8 +54,7 @@ bool operator<(const lineBlock &lhs, const lineBlock &rhs)
     return lhs.val > rhs.val; // reverse sort ;-)
 }
 
-CodeViz::CodeViz(QWidget *parent) :
-    VizWidget(parent)
+CodeViz::CodeViz(QWidget *parent) : VizWidget(parent)
 {
     margin = 0;
 
@@ -74,9 +73,12 @@ CodeViz::~CodeViz()
     closeAll();
 }
 
-QString filenameFromPath(QString path){
-    for(int i = 0; i < path.length(); i++){
-        if(path.at(path.length() - 1 - i) == '/')return path.right(i);
+QString filenameFromPath(QString path)
+{
+    for (int i = 0; i < path.length(); i++)
+    {
+        if (path.at(path.length() - 1 - i) == '/')
+            return path.right(i);
     }
     return path;
 }
@@ -85,28 +87,32 @@ int CodeViz::getFileID(QString name)
 {
     name = filenameFromPath(name);
 
-    for(int i=0; i<sourceBlocks.size(); i++)
+    for (int i = 0; i < sourceBlocks.size(); i++)
     {
-        if(sourceBlocks[i].name == name)
+        if (sourceBlocks[i].name == name)
             return i;
     }
 
     // First time we see this name, new entry
-    QString srcFile = sourceDir+"/"+name;
-    QFile *src = new QFile(srcFile);
-    src->open(QIODevice::ReadOnly | QIODevice::Text);
+    QString srcFile = sourceDir + "/" + name;
+    QFile *src = nullptr;
+    if (QFile::exists(srcFile))
+    {
+        src = new QFile(srcFile);
+        src->open(QIODevice::ReadOnly | QIODevice::Text);
+    }
 
     sourceBlock newBlock = {name, src, 0, QRect(), 0, QVector<lineBlock>()};
     sourceBlocks.push_back(newBlock);
 
-    return sourceBlocks.size()-1;
+    return sourceBlocks.size() - 1;
 }
 
 int CodeViz::getLineID(sourceBlock *src, int line)
 {
-    for(int i=0; i<src->lineBlocks.size(); i++)
+    for (int i = 0; i < src->lineBlocks.size(); i++)
     {
-        if(src->lineBlocks[i].line == line)
+        if (src->lineBlocks[i].line == line)
             return i;
     }
 
@@ -114,7 +120,7 @@ int CodeViz::getLineID(sourceBlock *src, int line)
     lineBlock newBlock = {line, 0, QRect()};
     src->lineBlocks.push_back(newBlock);
 
-    return src->lineBlocks.size()-1;
+    return src->lineBlocks.size() - 1;
 }
 
 void CodeViz::processData()
@@ -127,20 +133,20 @@ void CodeViz::processData()
     sourceBlocks.clear();
 
     // Get metric values
-    for(Sample s: dataSet->samples)
+    for (Sample s : dataSet->samples)
     {
-        if(dataSet->selectionDefined() && !dataSet->selected(s.sampleId))
+        if (dataSet->selectionDefined() && !dataSet->selected(s.sampleId))
             continue;
 
         int sourceIdx = this->getFileID(s.source);
         sourceBlocks[sourceIdx].val += s.latency;
-        sourceMaxVal = std::max(sourceMaxVal,sourceBlocks[sourceIdx].val);
+        sourceMaxVal = std::max(sourceMaxVal, sourceBlocks[sourceIdx].val);
 
-        int lineIdx = this->getLineID(&sourceBlocks[sourceIdx],s.line);
+        int lineIdx = this->getLineID(&sourceBlocks[sourceIdx], s.line);
         sourceBlocks[sourceIdx].lineBlocks[lineIdx].val += s.latency;
 
         sourceBlocks[sourceIdx].lineMaxVal = std::max(sourceBlocks[sourceIdx].lineMaxVal,
-                                                  sourceBlocks[sourceIdx].lineBlocks[lineIdx].val);
+                                                      sourceBlocks[sourceIdx].lineBlocks[lineIdx].val);
     }
 
     // int elem = 0;
@@ -161,17 +167,17 @@ void CodeViz::processData()
     //                                               sourceBlocks[sourceIdx].lineBlocks[lineIdx].val);
     // }
 
-    if(sourceBlocks.empty())
+    if (sourceBlocks.empty())
     {
         processed = true;
         return;
     }
 
     // Sort based on value
-    std::sort(sourceBlocks.begin(),sourceBlocks.end());
+    std::sort(sourceBlocks.begin(), sourceBlocks.end());
 
-    for(int j=0; j<sourceBlocks.size(); j++)
-        std::sort(sourceBlocks[j].lineBlocks.begin(),sourceBlocks[j].lineBlocks.end());
+    for (int j = 0; j < sourceBlocks.size(); j++)
+        std::sort(sourceBlocks[j].lineBlocks.begin(), sourceBlocks[j].lineBlocks.end());
 
     emit sourceFileSelected(sourceBlocks[0].file);
     emit sourceLineSelected(sourceBlocks[0].lineBlocks[0].line);
@@ -181,7 +187,7 @@ void CodeViz::processData()
 
 void CodeViz::selectionChangedSlot()
 {
-    if(processed)
+    if (processed)
     {
         processData();
         needsRepaint = true;
@@ -194,64 +200,63 @@ void CodeViz::drawQtPainter(QPainter *painter)
 
     painter->fillRect(drawSpace, bgColor);
 
-    if(!processed || sourceBlocks.empty())
+    if (!processed || sourceBlocks.empty())
         return;
 
-    int numBlocks = std::min(numVisibleSourceBlocks,sourceBlocks.size());
+    int numBlocks = std::min(numVisibleSourceBlocks, sourceBlocks.size());
     int blockHeight = drawSpace.height() / numBlocks;
-    for(int i=0; i<numBlocks; i++)
+    for (int i = 0; i < numBlocks; i++)
     {
         sourceBlocks[i].block.setLeft(drawSpace.left());
-        sourceBlocks[i].block.setTop(drawSpace.top()+i*blockHeight);
-        sourceBlocks[i].block.setWidth(sourceBlocks[i].val/sourceMaxVal*drawSpace.width());
+        sourceBlocks[i].block.setTop(drawSpace.top() + i * blockHeight);
+        sourceBlocks[i].block.setWidth(sourceBlocks[i].val / sourceMaxVal * drawSpace.width());
         sourceBlocks[i].block.setHeight(blockHeight);
 
-        painter->fillRect(sourceBlocks[i].block,Qt::lightGray);
+        painter->fillRect(sourceBlocks[i].block, Qt::lightGray);
 
-        int numLines = std::min(numVisibleLineBlocks,sourceBlocks[i].lineBlocks.size());
+        int numLines = std::min(numVisibleLineBlocks, sourceBlocks[i].lineBlocks.size());
         int lineHeight = blockHeight / numLines;
-        for(int j=0; j<numLines; j++)
+        for (int j = 0; j < numLines; j++)
         {
             sourceBlocks[i].lineBlocks[j].block.setLeft(drawSpace.left());
-            sourceBlocks[i].lineBlocks[j].block.setTop(sourceBlocks[i].block.top()+j*lineHeight);
-            sourceBlocks[i].lineBlocks[j].block.setWidth(sourceBlocks[i].lineBlocks[j].val/sourceBlocks[i].lineMaxVal*sourceBlocks[i].block.width());
+            sourceBlocks[i].lineBlocks[j].block.setTop(sourceBlocks[i].block.top() + j * lineHeight);
+            sourceBlocks[i].lineBlocks[j].block.setWidth(sourceBlocks[i].lineBlocks[j].val / sourceBlocks[i].lineMaxVal * sourceBlocks[i].block.width());
             sourceBlocks[i].lineBlocks[j].block.setHeight(lineHeight);
 
-            painter->fillRect(sourceBlocks[i].lineBlocks[j].block,Qt::gray);
+            painter->fillRect(sourceBlocks[i].lineBlocks[j].block, Qt::gray);
             painter->setPen(Qt::white);
-            painter->drawText(QPoint(sourceBlocks[i].block.right(),sourceBlocks[i].lineBlocks[j].block.top())
-                              +QPoint(-40,16),
+            painter->drawText(QPoint(sourceBlocks[i].block.right(), sourceBlocks[i].lineBlocks[j].block.top()) + QPoint(-40, 16),
                               QString::number(sourceBlocks[i].lineBlocks[j].line));
         }
 
         painter->setPen(Qt::black);
-        painter->drawText(sourceBlocks[i].block.topLeft()+QPoint(0,16),sourceBlocks[i].name);
+        painter->drawText(sourceBlocks[i].block.topLeft() + QPoint(0, 16), sourceBlocks[i].name);
     }
 }
 
 void CodeViz::mouseReleaseEvent(QMouseEvent *e)
 {
-    for(int i=0; i<sourceBlocks.size(); i++)
+    for (int i = 0; i < sourceBlocks.size(); i++)
     {
         QRect sourceSelectionBox(sourceBlocks[i].block.left(),
                                  sourceBlocks[i].block.top(),
                                  rect().width(),
                                  sourceBlocks[i].block.height());
-        if(sourceSelectionBox.contains(e->pos()))
+        if (sourceSelectionBox.contains(e->pos()))
         {
-            for(int j=0; j<sourceBlocks[i].lineBlocks.size(); j++)
+            for (int j = 0; j < sourceBlocks[i].lineBlocks.size(); j++)
             {
                 QRect lineSelectionBox(sourceBlocks[i].block.left(),
                                        sourceBlocks[i].lineBlocks[j].block.top(),
                                        rect().width(),
                                        sourceBlocks[i].lineBlocks[j].block.height());
-                if(lineSelectionBox.contains(e->pos()))
+                if (lineSelectionBox.contains(e->pos()))
                 {
-                    //int dim = dataSet->lineDim;
+                    // int dim = dataSet->lineDim;
                     qreal lineval = sourceBlocks[i].lineBlocks[j].line;
 
-                    dataSet->selectByLineRange(lineval-1,lineval);
-                    //dataSet->selectByDimRange(dim,lineval-1,lineval);
+                    dataSet->selectByLineRange(lineval - 1, lineval);
+                    // dataSet->selectByDimRange(dim,lineval-1,lineval);
 
                     emit sourceFileSelected(sourceBlocks[i].file);
                     emit sourceLineSelected(sourceBlocks[i].lineBlocks[j].line);
@@ -271,8 +276,8 @@ void CodeViz::setSourceDir(QString dir)
 
 void CodeViz::closeAll()
 {
-    for(int i=0; i<sourceBlocks.size(); i++)
+    for (int i = 0; i < sourceBlocks.size(); i++)
     {
-        sourceBlocks[i].file->close();
+        if(sourceBlocks[i].file != nullptr)sourceBlocks[i].file->close();
     }
 }

@@ -361,6 +361,25 @@ void DataObject::selectByMultiDimRange(QVector<int> dims, QVector<qreal> mins, Q
     // }
     //
     // selectSet(selSet,group);
+
+    ElemSet selSet;
+
+    std::cerr << "selecting data: \n";
+    for(int i = 0; i < dims.size(); i++){
+        std::cerr <<"axis: " << dims[i] << " starting at: " << mins[i] << " up to: " << maxes[i] << std::endl;
+    }
+
+    for(int s = 0; s < numSamples; s++){
+        bool partOf = true;
+        for(int i = 0; i < dims.size(); i++){
+            if(GetSampleAttribByIndex(s, dims[i]) > maxes[i] || GetSampleAttribByIndex(s, dims[i]) < mins[i]){
+                partOf = false;
+                break;
+            }
+        }
+        if(partOf)selSet.insert(s);
+    }
+    selectSet(selSet);
 }
 
 void DataObject::selectByVarName(QString str, int group)

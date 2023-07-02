@@ -72,6 +72,7 @@ public slots:
     void setSelOpacity(int val);
     void setUnselOpacity(int val);
     void setShowHistograms(bool checked);
+    void resetSelection();
     void beginAnimation();
     void endAnimation();
 

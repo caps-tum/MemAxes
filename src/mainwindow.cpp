@@ -400,6 +400,7 @@ void MainWindow::selectAllVisible()
 void MainWindow::selectAll()
 {
     dataSet->selectAll();
+    pcViz->resetSelection();
     selectionChangedSlot();
 }
 
@@ -456,5 +457,9 @@ void MainWindow::setSelectModeXOR(bool on)
 
 void MainWindow::setCodeLabel(QFile *file)
 {
-    ui->codeLabel->setText(file->fileName());
+    if(file != nullptr){
+        ui->codeLabel->setText(file->fileName());
+    }else{
+        ui->codeLabel->setText("FILE NOT FOUND");
+    }
 }

@@ -48,7 +48,7 @@ CodeEditor::CodeEditor(QWidget *parent) : QPlainTextEdit(parent)
     lineNumberArea = new LineNumberArea(this);
 
     connect(this, SIGNAL(blockCountChanged(int)), this, SLOT(updateLineNumberAreaWidth(int)));
-    connect(this, SIGNAL(updateRequest(QRect,int)), this, SLOT(updateLineNumberArea(QRect,int)));
+    connect(this, SIGNAL(updateRequest(QRect, int)), this, SLOT(updateLineNumberArea(QRect, int)));
     connect(this, SIGNAL(cursorPositionChanged()), this, SLOT(highlightCurrentLine()));
 
     nonUserCursorChange = 0;
@@ -61,7 +61,8 @@ int CodeEditor::lineNumberAreaWidth()
 {
     int digits = 1;
     int max = qMax(1, blockCount());
-    while (max >= 10) {
+    while (max >= 10)
+    {
         max /= 10;
         ++digits;
     }
@@ -99,23 +100,23 @@ void CodeEditor::highlightCurrentLine()
 {
     QList<QTextEdit::ExtraSelection> extraSelections;
 
-    //if (!isReadOnly()) {
-        QTextEdit::ExtraSelection selection;
+    // if (!isReadOnly()) {
+    QTextEdit::ExtraSelection selection;
 
-        QColor lineColor = QColor(Qt::yellow).lighter(160);
+    QColor lineColor = QColor(Qt::yellow).lighter(160);
 
-        selection.format.setBackground(lineColor);
-        selection.format.setProperty(QTextFormat::FullWidthSelection, true);
-        selection.cursor = textCursor();
-        selection.cursor.clearSelection();
-        extraSelections.append(selection);
+    selection.format.setBackground(lineColor);
+    selection.format.setProperty(QTextFormat::FullWidthSelection, true);
+    selection.cursor = textCursor();
+    selection.cursor.clearSelection();
+    extraSelections.append(selection);
     //}
 
     setExtraSelections(extraSelections);
 
-    if(nonUserCursorChange)
+    if (nonUserCursorChange)
     {
-        //emit lineSelected(this->textCursor().blockNumber());
+        // emit lineSelected(this->textCursor().blockNumber());
         nonUserCursorChange = 0;
         return;
     }
@@ -134,15 +135,18 @@ void CodeEditor::setLine(int line)
     cursor.movePosition(QTextCursor::Right, QTextCursor::MoveAnchor, 0);
     this->setTextCursor(cursor);
     this->centerCursor();
-    //this->setFocus();
-
+    // this->setFocus();
 }
 
 void CodeEditor::setFile(QFile *file)
 {
-    QTextStream codeStream(file);
-    this->setPlainText(codeStream.readAll());
-    file->reset();
+    if(file != nullptr){
+        QTextStream codeStream(file);
+        this->setPlainText(codeStream.readAll());
+        file->reset();
+    }else{
+        this->setPlainText("FILLE COULD NOT BE FOUND");
+    }
 }
 
 void CodeEditor::lineNumberAreaPaintEvent(QPaintEvent *event)
@@ -152,11 +156,13 @@ void CodeEditor::lineNumberAreaPaintEvent(QPaintEvent *event)
 
     QTextBlock block = firstVisibleBlock();
     int blockNumber = block.blockNumber();
-    int top = (int) blockBoundingGeometry(block).translated(contentOffset()).top();
-    int bottom = top + (int) blockBoundingRect(block).height();
+    int top = (int)blockBoundingGeometry(block).translated(contentOffset()).top();
+    int bottom = top + (int)blockBoundingRect(block).height();
 
-    while (block.isValid() && top <= event->rect().bottom()) {
-        if (block.isVisible() && bottom >= event->rect().top()) {
+    while (block.isValid() && top <= event->rect().bottom())
+    {
+        if (block.isVisible() && bottom >= event->rect().top())
+        {
             QString number = QString::number(blockNumber + 1);
             painter.setPen(Qt::black);
             painter.drawText(0, top, lineNumberArea->width(), fontMetrics().height(),
@@ -165,8 +171,7 @@ void CodeEditor::lineNumberAreaPaintEvent(QPaintEvent *event)
 
         block = block.next();
         top = bottom;
-        bottom = top + (int) blockBoundingRect(block).height();
+        bottom = top + (int)blockBoundingRect(block).height();
         ++blockNumber;
     }
 }
-
