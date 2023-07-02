@@ -92,9 +92,10 @@ PCVizWidget::PCVizWidget(QWidget *parent)
     animationAxis = -1;
     movingAxis = -1;
 
+    filterLine = -1;
+
     axisMouseOver = -1;
     binMouseOver = -1;
-
     binsInitialize = true;
 
     binMatrixValid = false;
@@ -168,6 +169,7 @@ void PCVizWidget::processData()
 
 void PCVizWidget::leaveEvent(QEvent *e)
 {
+    binMouseOver = -1;
     VizWidget::leaveEvent(e);
     needsRepaint = true;
 }
@@ -305,6 +307,8 @@ bool PCVizWidget::eventFilter(QObject *obj, QEvent *event)
 
     if (event->type() == QEvent::MouseMove)
     {
+        filterLine = -1;
+
         // Dragging to create a selection
         if (mouseEvent->buttons() && selectionAxis != -1)
         {
@@ -599,6 +603,8 @@ void printVector(QVector<int> v){
 // calculates vertex positions for drawing connection lines between neighboring histograms
 void PCVizWidget::recalcLines(int dirtyAxis)
 {
+
+    std::cerr << "recalc with filter "<<filterLine<<std::endl;
     // std::cerr << "entering recalcLines\n";
     if (SKIP_GL)
         return;
@@ -634,6 +640,7 @@ void PCVizWidget::recalcLines(int dirtyAxis)
         condAxisStart = &binMatrix[dataSet->getNumberOfSamples() * axesDataIndex[condAxis]];
     //std::cerr << axisMouseOver << " : " << binMouseOver << std::endl;
 
+
     for (int dim = 0; dim < numDimensions - 1; dim++)
     {
         if (dirtyAxis != -1 && i != dirtyAxis && i != dirtyAxis - 1)
@@ -656,7 +663,7 @@ void PCVizWidget::recalcLines(int dirtyAxis)
 
         for (int s = 0; s < dataSet->getNumberOfSamples(); s++)
         {
-            if ((binMouseOver < 0 || condAxisStart[s] == binMouseOver))
+            if ((binMouseOver < 0 || condAxisStart[s] == binMouseOver) && (filterLine < 0 || filterLine == dataSet->GetSampleAttribByIndex(s, 2)))
             {
                 // std::cerr << "attempting to access element " << (axisStart[s] * numHistBins + axisStart[s]) << std::endl;
                 correlation[axisStart[s] * numHistBins + nextAxisStart[s]]++;
@@ -819,56 +826,7 @@ void PCVizWidget::recalcLines(int dirtyAxis)
         std::cerr << "recalc lines took " << elapsed.count() << " milliseconds created " << verts.size() << " vertices\n";
         // matrixSpeedTest(dataSet->GetSampleMatrix(), dataSet->getNumberOfSamples() * dataSet->getNumberOfAttributes());
     }
-    //
-    // for(p=dataSet->begin, elem=0; p!=dataSet->end; p+=numDimensions, elem++)
-    // {
-    //     if(!dataSet->visible(elem))
-    //     {
-    //         continue;
-    //     }
-    //     else if(dataSet->selected(elem))
-    //     {
-    //         col = redVec;
-    //         col.setW(selOpacity);
-    //     }
-    //     else
-    //     {
-    //         col = dataColor;
-    //         col.setW(unselOpacity);
-    //     }
-    //
-    //
-    //     for(i=0; i<numDimensions-1; i++)
-    //     {
-    //         if(dirtyAxis != -1  && i != dirtyAxis && i != dirtyAxis-1)
-    //             continue;
-    //
-    //         axis = axesOrder[i];
-    //         nextAxis = axesOrder[i+1];
-    //
-    //         float aVal = scale(*(p+axis),dimMins[axis],dimMaxes[axis],0,1);
-    //         a = QVector2D(axesPositions[axis],aVal);
-    //
-    //         float bVal = scale(*(p+nextAxis),dimMins[nextAxis],dimMaxes[nextAxis],0,1);
-    //         b = QVector2D(axesPositions[nextAxis],bVal);
-    //
-    //         verts.push_back(a.x());
-    //         verts.push_back(a.y());
-    //
-    //         verts.push_back(b.x());
-    //         verts.push_back(b.y());
-    //
-    //         colors.push_back(col.x());
-    //         colors.push_back(col.y());
-    //         colors.push_back(col.z());
-    //         colors.push_back(col.w());
-    //
-    //         colors.push_back(col.x());
-    //         colors.push_back(col.y());
-    //         colors.push_back(col.z());
-    //         colors.push_back(col.w());
-    //     }
-    // }
+
 }
 
 void PCVizWidget::showContextMenu(const QPoint &pos)
@@ -1252,6 +1210,13 @@ void PCVizWidget::setLineColoringFirstAxis()
 void PCVizWidget::setLineColoringSecondAxis()
 {
     lineStyle = secondAxis;
+    needsRecalcLines = true;
+    needsRepaint = true;
+}
+
+void PCVizWidget::setFilterLine(int filter){
+    filterLine = filter;
+    std::cerr << "filtering by: "<< filter << std::endl;
     needsRecalcLines = true;
     needsRepaint = true;
 }

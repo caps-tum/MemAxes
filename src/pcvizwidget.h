@@ -80,6 +80,8 @@ public slots:
     void setLineColoringFirstAxis();
     void setLineColoringSecondAxis();
 
+    void setFilterLine(int);
+
 protected:
     void processData();
     void paintGL();
@@ -156,11 +158,12 @@ private:
 
     int* binMatrix;
     bool binMatrixValid;
-
     bool binsInitialize;
 
     qreal firstSel;
     qreal lastSel;
+
+    int filterLine;
 
     qreal selOpacity;
     qreal unselOpacity;

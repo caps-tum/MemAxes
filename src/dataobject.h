@@ -202,6 +202,7 @@ private:
     int numAttributes;
     vector<string> sourceFiles;
     vector<string> attributeNames;
+    QVector<int> instrUIDToLine;
 
     
 public:

@@ -69,6 +69,8 @@ public:
 signals:
     void sourceFileSelected(QFile *file);
     void sourceLineSelected(int line);
+    void sourceLineHover(int line);
+
 
 protected:
     void processData();
@@ -76,7 +78,11 @@ protected:
     //void visibilityChangedSlot();
     void drawQtPainter(QPainter *painter);
 
+    int sourceBlockMouseOver(QPoint mousePos);
+
     void mouseReleaseEvent(QMouseEvent *e);
+    void leaveEvent(QEvent *event);
+    bool eventFilter(QObject *obj, QEvent *event);
 
 public slots:
     void setSourceDir(QString dir);

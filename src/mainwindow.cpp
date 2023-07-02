@@ -140,6 +140,7 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(codeViz, SIGNAL(sourceFileSelected(QFile*)), this, SLOT(setCodeLabel(QFile*)));
     connect(codeViz, SIGNAL(sourceFileSelected(QFile*)), codeEditor, SLOT(setFile(QFile*)));
     connect(codeViz, SIGNAL(sourceLineSelected(int)), codeEditor, SLOT(setLine(int)));
+    
 
     /*
      * Memory Topology Viz
@@ -169,6 +170,7 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->allBins, SIGNAL(toggled(bool)), parallelCoordinatesViz, SLOT(setLineColoringAllBins()));
     connect(ui->firstAxis, SIGNAL(toggled(bool)), parallelCoordinatesViz, SLOT(setLineColoringFirstAxis()));
     connect(ui->secondAxis, SIGNAL(toggled(bool)), parallelCoordinatesViz, SLOT(setLineColoringSecondAxis()));
+    connect(codeViz, SIGNAL(sourceLineHover(int)), parallelCoordinatesViz, SLOT(setFilterLine(int)));
 
     vizWidgets.push_back(parallelCoordinatesViz);
     pcViz = parallelCoordinatesViz;

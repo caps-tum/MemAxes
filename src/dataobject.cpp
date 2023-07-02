@@ -266,6 +266,7 @@ void DataObject::selectByLineRange(qreal vmin, qreal vmax, int group)
         if(sample.line >= vmin && sample.line < vmax)
             selSet.insert(sample.sampleId);
     }
+    std::cerr << "selected by line range: " << selSet.size()<< " vmin: " << vmin << " vmax: " << vmax << std::endl;
     selectSet(selSet,group);
 }
 
@@ -313,55 +314,6 @@ void DataObject::selectByLineRange(qreal vmin, qreal vmax, int group)
 
 void DataObject::selectByMultiDimRange(QVector<int> dims, QVector<qreal> mins, QVector<qreal> maxes, int group)
 {
-    //TODO !!!
-    //TODO !!!
-    //TODO !!!
-    //TODO !!!
-    //TODO !!!
-
-    // ElemSet selSet;
-    // for(int d=0; d<dims.size(); d++)
-    // {
-    //     int dim = dims[d];
-    //     std::vector<indexedValue>::iterator itMin;
-    //     std::vector<indexedValue>::iterator itMax;
-    //
-    //     struct indexedValue ivMinQuery;
-    //     ivMinQuery.val = mins[d];
-    //
-    //     struct indexedValue ivMaxQuery;
-    //     ivMaxQuery.val = maxes[d];
-    //
-    //     if(ivMinQuery.val <= this->minimumValues[dim])
-    //     {
-    //         itMin = dimSortedLists.at(dim).begin();
-    //     }
-    //     else
-    //     {
-    //         itMin = std::find_if(dimSortedLists.at(dim).begin(),
-    //                              dimSortedLists.at(dim).end(),
-    //                              indexedValueLtFunctor(ivMinQuery));
-    //     }
-    //
-    //     if(ivMaxQuery.val >= this->maximumValues[dim])
-    //     {
-    //         itMax = dimSortedLists.at(dim).end();
-    //     }
-    //     else
-    //     {
-    //         itMax = std::find_if(dimSortedLists.at(dim).begin(),
-    //                              dimSortedLists.at(dim).end(),
-    //                              indexedValueLtFunctor(ivMaxQuery));
-    //     }
-    //
-    //     for(/*itMin*/; itMin != itMax; itMin++)
-    //     {
-    //         selSet.insert(itMin->idx);
-    //     }
-    // }
-    //
-    // selectSet(selSet,group);
-
     ElemSet selSet;
 
     std::cerr << "selecting data: \n";
@@ -762,7 +714,9 @@ int DataObject::parseCSVFile(QString dataFileName)
         s.sourceUid = createUniqueID(sourceVec,lineValues[header.indexOf("source")]); 
         s.source = lineValues[header.indexOf("source")]; // source file absolute path
         s.line = lineValues[header.indexOf("line")].toLongLong(); // line in source file
+        int oldNumberInstrUIDs = instrVec.size();
         s.instructionUid = createUniqueID(instrVec,lineValues[header.indexOf("instruction")]);
+        if(s.instructionUid == oldNumberInstrUIDs)instrUIDToLine.push_back(s.line);
         s.instruction = lineValues[header.indexOf("instruction")]; //instruction type
         s.bytes = lineValues[header.indexOf("bytes")].toLongLong();
         s.ip = lineValues[header.indexOf("ip")].toLongLong(); // instruction pointer
