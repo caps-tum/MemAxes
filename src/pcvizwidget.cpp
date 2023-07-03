@@ -335,6 +335,17 @@ bool PCVizWidget::eventFilter(QObject *obj, QEvent *event)
             // uncomment to show all correlations when mouse hovers over an empty bin. Deactivated because it can be irritating
             // if(histVals[axisMouseOver][binMouseOver] == 0)binMouseOver = -1;
             needsRecalcLines = true;
+            //line selection stuff
+            if(axesDataIndex[axisMouseOver] == 2){
+                //find first element in bin
+                for(int s = 0;  s < dataSet->getNumberOfSamples(); s++){
+                    if(binMatrix[2 * dataSet->getNumberOfSamples() + s] == binMouseOver){
+                        emit lineSelected(dataSet->GetSampleAttribByIndex(s, 2));
+                        //std::cerr << "emitting select signal " << (dataSet->GetSampleAttribByIndex(s, 2)) << std::endl;
+                        break;
+                    }
+                }
+            }
         }
         else
         {
@@ -496,7 +507,7 @@ void PCVizWidget::eliminateEmptyAxes(){
     while(i < numDimensions){
         if(axisInteresting(i))i++;
         else removeHistogram(axesDataIndex[i]);
-        std::cerr << "this goes on forever i: "<< i << " numDimensions: " << numDimensions << "\n";
+        //std::cerr << "this goes on forever i: "<< i << " numDimensions: " << numDimensions << "\n";
     }
 }
 
@@ -510,7 +521,7 @@ void PCVizWidget::calcHistBins()
     if (binMatrixValid)
         free(binMatrix);
     binMatrix = (int *)malloc(dataSet->getNumberOfAttributes() * dataSet->getNumberOfSamples() * sizeof(int));
-    std::cerr << "allocated bin matrix of size " << (dataSet->getNumberOfAttributes() * dataSet->getNumberOfSamples()) << std::endl;
+    //std::cerr << "allocated bin matrix of size " << (dataSet->getNumberOfAttributes() * dataSet->getNumberOfSamples()) << std::endl;
     binMatrixValid = true;
     std::fill_n(binMatrix, dataSet->getNumberOfAttributes() * dataSet->getNumberOfSamples(), -1);
 
@@ -604,7 +615,7 @@ void printVector(QVector<int> v){
 void PCVizWidget::recalcLines(int dirtyAxis)
 {
 
-    std::cerr << "recalc with filter "<<filterLine<<std::endl;
+    //std::cerr << "recalc with filter "<<filterLine<<std::endl;
     // std::cerr << "entering recalcLines\n";
     if (SKIP_GL)
         return;
@@ -1216,7 +1227,7 @@ void PCVizWidget::setLineColoringSecondAxis()
 
 void PCVizWidget::setFilterLine(int filter){
     filterLine = filter;
-    std::cerr << "filtering by: "<< filter << std::endl;
+    //std::cerr << "filtering by: "<< filter << std::endl;
     needsRecalcLines = true;
     needsRepaint = true;
 }

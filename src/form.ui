@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1466</width>
-    <height>788</height>
+    <height>756</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -15,14 +15,23 @@
   </property>
   <widget class="QWidget" name="centralWidget">
    <layout class="QHBoxLayout" name="horizontalLayout_4">
+    <property name="bottomMargin">
+     <number>0</number>
+    </property>
     <item>
      <widget class="QSplitter" name="topBottomSplitter">
       <property name="orientation">
        <enum>Qt::Vertical</enum>
       </property>
+      <property name="childrenCollapsible">
+       <bool>true</bool>
+      </property>
       <widget class="QSplitter" name="topSplitter">
        <property name="orientation">
         <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="childrenCollapsible">
+        <bool>true</bool>
        </property>
        <widget class="QWidget" name="codeDomainLayoutWidget">
         <layout class="QVBoxLayout" name="codeDomainParent">
@@ -338,6 +347,9 @@
       </widget>
       <widget class="QWidget" name="parallelCoordinatesLayoutWidget">
        <layout class="QVBoxLayout" name="parallelCoordinatesParent">
+        <property name="spacing">
+         <number>6</number>
+        </property>
         <item>
          <widget class="QLabel" name="parallelCoordinatesLabel">
           <property name="text">
@@ -548,6 +560,31 @@
               </widget>
              </item>
             </layout>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="Recommendationbar">
+          <item>
+           <widget class="QPushButton" name="rec1">
+            <property name="text">
+             <string>PushButton</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="rec2">
+            <property name="text">
+             <string>PushButton</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="rec3">
+            <property name="text">
+             <string>PushButton</string>
+            </property>
            </widget>
           </item>
          </layout>

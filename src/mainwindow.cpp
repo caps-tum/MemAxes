@@ -171,6 +171,7 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->firstAxis, SIGNAL(toggled(bool)), parallelCoordinatesViz, SLOT(setLineColoringFirstAxis()));
     connect(ui->secondAxis, SIGNAL(toggled(bool)), parallelCoordinatesViz, SLOT(setLineColoringSecondAxis()));
     connect(codeViz, SIGNAL(sourceLineHover(int)), parallelCoordinatesViz, SLOT(setFilterLine(int)));
+    connect(parallelCoordinatesViz, SIGNAL(lineSelected(int)), codeEditor, SLOT(setLine(int)));
 
     vizWidgets.push_back(parallelCoordinatesViz);
     pcViz = parallelCoordinatesViz;

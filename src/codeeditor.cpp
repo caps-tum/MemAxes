@@ -126,6 +126,7 @@ void CodeEditor::highlightCurrentLine()
 
 void CodeEditor::setLine(int line)
 {
+    //std::cerr << "receiving set line signal " << line << std::endl;
     // code view starts at 1
     line--;
     nonUserCursorChange = 0;
