@@ -56,8 +56,9 @@ public:
 
 public:
     void recalcLines(int dirtyAxis = -1);
-    int removeHistogram(int index);
-    int addHistogram(int index);
+    int removeAxis(int index);
+    int addAxis(int index);
+    int correlateAxes(int dataIndex1, int dataIndex2);
 
 
 signals:
@@ -85,6 +86,8 @@ public slots:
 protected:
     void processData();
     void paintGL();
+    void highlightAxis(int index);
+    void highlightMultipleAxes(int indexStart, int indexEnd);
     void drawQtPainter(QPainter *painter);
 
     void distributeAxes();
@@ -110,6 +113,7 @@ private:
     void eliminateEmptyAxes();
     void calcHistBins();
     float yToSelection(float y);
+    
 
 private:
     bool needsRecalcLines;
@@ -174,6 +178,9 @@ private:
 
     //line coloring
     LineColorMode lineStyle;
+
+    QRect highlightRect;
+    float highlightLifetime;
 };
 
 #endif // PARALLELCOORDINATESVIZ_H

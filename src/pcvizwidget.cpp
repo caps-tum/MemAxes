@@ -84,7 +84,7 @@ PCVizWidget::PCVizWidget(QWidget *parent)
     selOpacity = 0.4;
     unselOpacity = 0.1;
 
-    numHistBins = 50;
+    numHistBins = 200;
     showHistograms = true;
 
     cursorPos.setX(-1);
@@ -101,6 +101,9 @@ PCVizWidget::PCVizWidget(QWidget *parent)
     binMatrixValid = false;
     lineStyle = allBins;
 
+    highlightRect = QRect(0, 0, 0, 0);
+    highlightLifetime = 0;
+
     // Event Filters
     this->installEventFilter(this);
     this->setMouseTracking(true);
@@ -115,6 +118,15 @@ PCVizWidget::PCVizWidget(QWidget *parent)
 #define POINTS_PER_LINE 2
 #define FLOATS_PER_POINT 2
 #define FLOATS_PER_COLOR 4
+
+void printVector(QVector<int> v)
+{
+    for (int i : v)
+    {
+        std::cerr << i << ", ";
+    }
+    std::cerr << std::endl;
+}
 
 void PCVizWidget::processData()
 {
@@ -195,7 +207,7 @@ void PCVizWidget::mousePressEvent(QMouseEvent *mouseEvent)
     }
 }
 
-int PCVizWidget::removeHistogram(int index)
+int PCVizWidget::removeAxis(int index)
 {
     if (!axesDataIndex.contains(index))
     {
@@ -205,7 +217,7 @@ int PCVizWidget::removeHistogram(int index)
     // TODO
     int indexOfAxis = axesDataIndex.indexOf(index);
     axesDataIndex.removeAt(indexOfAxis);
-    std::cerr << "removed axis with index " << indexOfAxis << std::endl;
+    // std::cerr << "automatically removed axis with index " << indexOfAxis << std::endl;
     axesOrder.removeAt(indexOfAxis);
     axesPositions.removeAt(indexOfAxis);
     histVals.removeAt(indexOfAxis);
@@ -226,7 +238,7 @@ int PCVizWidget::removeHistogram(int index)
     return 0;
 }
 
-int PCVizWidget::addHistogram(int index)
+int PCVizWidget::addAxis(int index)
 {
     if (axesDataIndex.contains(index))
     {
@@ -260,9 +272,53 @@ int PCVizWidget::addHistogram(int index)
     distributeAxes();
     needsRepaint = true;
 
+    // highlightAxis(numDimensions - 1);
+
     return 0;
 }
 
+int PCVizWidget::correlateAxes(int dataIndex1, int dataIndex2)
+{
+    if (dataIndex1 == dataIndex2)
+        return -1;
+
+    int index1 = axesDataIndex.indexOf(dataIndex1);
+    int index2 = axesDataIndex.indexOf(dataIndex2);
+
+    if (index1 < 0)
+        addAxis(dataIndex1);
+    index1 = axesDataIndex.indexOf(dataIndex1);
+
+    if (index2 < 0)
+        addAxis(dataIndex2);
+    index2 = axesDataIndex.indexOf(dataIndex2);
+
+    if (axesOrder[index1] > axesOrder[index2])
+    {
+        // std::cerr << "indexes switched\n";
+        int temp = index2;
+        index2 = index1;
+        index1 = temp;
+    }
+
+    // std::cerr << "index1 after switch: " << index1 << " index2 after switch: " << index2 << std::endl;
+    for (int i = 0; i < numDimensions; i++)
+    {
+        // std::cerr << i << std::endl;
+        if (axesOrder[i] > axesOrder[index1] && axesOrder[i] < axesOrder[index2])
+        {
+            axesOrder[i]++;
+        }
+    }
+    axesOrder[index2] = axesOrder[index1] + 1;
+    // printVector(axesOrder);
+
+    distributeAxes();
+    highlightMultipleAxes(index1, index2);
+    needsRecalcLines = true;
+    needsRepaint = true;
+    return 0;
+}
 void PCVizWidget::mouseReleaseEvent(QMouseEvent *event)
 {
     Q_UNUSED(event);
@@ -278,8 +334,6 @@ void PCVizWidget::mouseReleaseEvent(QMouseEvent *event)
     }
 
     needsProcessSelection = true;
-
-    
 
     movingAxis = -1;
     selectionAxis = -1;
@@ -335,13 +389,16 @@ bool PCVizWidget::eventFilter(QObject *obj, QEvent *event)
             // uncomment to show all correlations when mouse hovers over an empty bin. Deactivated because it can be irritating
             // if(histVals[axisMouseOver][binMouseOver] == 0)binMouseOver = -1;
             needsRecalcLines = true;
-            //line selection stuff
-            if(axesDataIndex[axisMouseOver] == 2){
-                //find first element in bin
-                for(int s = 0;  s < dataSet->getNumberOfSamples(); s++){
-                    if(binMatrix[2 * dataSet->getNumberOfSamples() + s] == binMouseOver){
+            // line selection stuff
+            if (axesDataIndex[axisMouseOver] == 2)
+            {
+                // find first element in bin
+                for (int s = 0; s < dataSet->getNumberOfSamples(); s++)
+                {
+                    if (binMatrix[2 * dataSet->getNumberOfSamples() + s] == binMouseOver)
+                    {
                         emit lineSelected(dataSet->GetSampleAttribByIndex(s, 2));
-                        //std::cerr << "emitting select signal " << (dataSet->GetSampleAttribByIndex(s, 2)) << std::endl;
+                        // std::cerr << "emitting select signal " << (dataSet->GetSampleAttribByIndex(s, 2)) << std::endl;
                         break;
                     }
                 }
@@ -494,20 +551,27 @@ void PCVizWidget::calcMinMaxes()
     // }
 }
 
-bool PCVizWidget::axisInteresting(int axis){
+bool PCVizWidget::axisInteresting(int axis)
+{
     int populatedAxes = 0;
-    for(int i = 0; i < numHistBins; i++){
-        if(histVals[axis][i] != 0)populatedAxes++;
+    for (int i = 0; i < numHistBins; i++)
+    {
+        if (histVals[axis][i] != 0)
+            populatedAxes++;
     }
     return populatedAxes > 1;
 }
 
-void PCVizWidget::eliminateEmptyAxes(){
+void PCVizWidget::eliminateEmptyAxes()
+{
     int i = 0;
-    while(i < numDimensions){
-        if(axisInteresting(i))i++;
-        else removeHistogram(axesDataIndex[i]);
-        //std::cerr << "this goes on forever i: "<< i << " numDimensions: " << numDimensions << "\n";
+    while (i < numDimensions)
+    {
+        if (axisInteresting(i))
+            i++;
+        else
+            removeAxis(axesDataIndex[i]);
+        // std::cerr << "this goes on forever i: "<< i << " numDimensions: " << numDimensions << "\n";
     }
 }
 
@@ -521,7 +585,7 @@ void PCVizWidget::calcHistBins()
     if (binMatrixValid)
         free(binMatrix);
     binMatrix = (int *)malloc(dataSet->getNumberOfAttributes() * dataSet->getNumberOfSamples() * sizeof(int));
-    //std::cerr << "allocated bin matrix of size " << (dataSet->getNumberOfAttributes() * dataSet->getNumberOfSamples()) << std::endl;
+    // std::cerr << "allocated bin matrix of size " << (dataSet->getNumberOfAttributes() * dataSet->getNumberOfSamples()) << std::endl;
     binMatrixValid = true;
     std::fill_n(binMatrix, dataSet->getNumberOfAttributes() * dataSet->getNumberOfSamples(), -1);
 
@@ -604,19 +668,12 @@ bool orderByFirst(tuple<float, float, float> a, tuple<float, float, float> b)
     return (get<0>(a) < get<0>(b));
 }
 
-void printVector(QVector<int> v){
-    for(int i : v){
-        std::cerr << i << ", ";
-    }
-    std::cerr << std::endl;
-}
-
 // calculates vertex positions for drawing connection lines between neighboring histograms
 void PCVizWidget::recalcLines(int dirtyAxis)
 {
 
-    //std::cerr << "recalc with filter "<<filterLine<<std::endl;
-    // std::cerr << "entering recalcLines\n";
+    // std::cerr << "recalc with filter "<<filterLine<<std::endl;
+    //  std::cerr << "entering recalcLines\n";
     if (SKIP_GL)
         return;
 
@@ -648,9 +705,8 @@ void PCVizWidget::recalcLines(int dirtyAxis)
     int condAxis = 0;
     if (axisMouseOver >= 0)
         condAxis = axisMouseOver;
-        condAxisStart = &binMatrix[dataSet->getNumberOfSamples() * axesDataIndex[condAxis]];
-    //std::cerr << axisMouseOver << " : " << binMouseOver << std::endl;
-
+    condAxisStart = &binMatrix[dataSet->getNumberOfSamples() * axesDataIndex[condAxis]];
+    // std::cerr << axisMouseOver << " : " << binMouseOver << std::endl;
 
     for (int dim = 0; dim < numDimensions - 1; dim++)
     {
@@ -665,8 +721,8 @@ void PCVizWidget::recalcLines(int dirtyAxis)
         int *nextAxisStart = &binMatrix[dataSet->getNumberOfSamples() * axesDataIndex[nextAxis]];
         float nextAxisPos = axesPositions[nextAxis];
 
-        //printVector(axesOrder);
-        //if(axis == axesOrder.indexOf(axisMouseOver))std::cerr << "axisMouseOver" << axisMouseOver << "axis: "<< axis << " nextAxis: " << nextAxis << "condAxis: "<< condAxis << "data at Axis: " << axesDataIndex[axis] << " data at nextAxis: " << axesDataIndex[nextAxis] << " binMatrix: " << binMatrix << std::endl;
+        // printVector(axesOrder);
+        // if(axis == axesOrder.indexOf(axisMouseOver))std::cerr << "axisMouseOver" << axisMouseOver << "axis: "<< axis << " nextAxis: " << nextAxis << "condAxis: "<< condAxis << "data at Axis: " << axesDataIndex[axis] << " data at nextAxis: " << axesDataIndex[nextAxis] << " binMatrix: " << binMatrix << std::endl;
 
         int correlation[numHistBins * numHistBins] = {};
 
@@ -837,7 +893,6 @@ void PCVizWidget::recalcLines(int dirtyAxis)
         std::cerr << "recalc lines took " << elapsed.count() << " milliseconds created " << verts.size() << " vertices\n";
         // matrixSpeedTest(dataSet->GetSampleMatrix(), dataSet->getNumberOfSamples() * dataSet->getNumberOfAttributes());
     }
-
 }
 
 void PCVizWidget::showContextMenu(const QPoint &pos)
@@ -887,7 +942,8 @@ void PCVizWidget::setShowHistograms(bool checked)
     needsRepaint = true;
 }
 
-void PCVizWidget::resetSelection(){
+void PCVizWidget::resetSelection()
+{
     selMins.fill(-1);
     selMaxes.fill(-1);
 }
@@ -931,7 +987,8 @@ void PCVizWidget::frameUpdate()
         calcHistBins();
         needsCalcHistBins = false;
     }
-    if(binsInitialize && processed){
+    if (binsInitialize && processed)
+    {
         eliminateEmptyAxes();
         binsInitialize = false;
     }
@@ -942,10 +999,9 @@ void PCVizWidget::frameUpdate()
     }
     if (needsRepaint)
     {
-        repaint();
         needsRepaint = false;
+        repaint();        
     }
-    
 }
 
 void PCVizWidget::beginAnimation()
@@ -1062,6 +1118,29 @@ void PCVizWidget::paintGL()
     }
 }
 
+void PCVizWidget::highlightAxis(int index)
+{
+    float widthPerElement = plotBBox.width() / numDimensions;
+
+    float x1 = plotBBox.left() + axesPositions[index] * plotBBox.width() - .2 * widthPerElement;
+    float x2 = x1 + widthPerElement;
+
+    highlightRect = QRect(qreal(x1), plotBBox.top(), widthPerElement, plotBBox.bottom());
+    highlightLifetime = 20;
+}
+
+void PCVizWidget::highlightMultipleAxes(int indexStart, int indexEnd)
+{
+    float widthPerElement = plotBBox.width() / numDimensions;
+
+    float x1 = plotBBox.left() + axesPositions[indexStart] * plotBBox.width() - .2 * widthPerElement;
+    float x2 = plotBBox.left() + axesPositions[indexEnd] * plotBBox.width() - .2 * widthPerElement;
+    ;
+
+    highlightRect = QRect(x1, plotBBox.top(), x2 + widthPerElement, plotBBox.bottom());
+    highlightLifetime = 20;
+}
+
 void PCVizWidget::drawQtPainter(QPainter *painter)
 {
     if (!processed)
@@ -1136,6 +1215,16 @@ void PCVizWidget::drawQtPainter(QPainter *painter)
 
             painter->drawRect(QRectF(a, b));
         }
+    }
+
+    // draw highligh box
+    painter->setPen(QPen(Qt::magenta, 3, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    if (highlightLifetime > 0)
+    {
+        painter->drawRect(highlightRect);
+        highlightRect = QRect(highlightRect.left() + 1, highlightRect.top() + 1, highlightRect.width() - 2, highlightRect.height() - 2);
+        needsRepaint = true;
+        highlightLifetime -= 1;
     }
 
     if (showHistograms)
@@ -1225,9 +1314,10 @@ void PCVizWidget::setLineColoringSecondAxis()
     needsRepaint = true;
 }
 
-void PCVizWidget::setFilterLine(int filter){
+void PCVizWidget::setFilterLine(int filter)
+{
     filterLine = filter;
-    //std::cerr << "filtering by: "<< filter << std::endl;
+    // std::cerr << "filtering by: "<< filter << std::endl;
     needsRecalcLines = true;
     needsRepaint = true;
 }

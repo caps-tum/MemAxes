@@ -98,9 +98,10 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->deselectAll, SIGNAL(clicked()), this, SLOT(deselectAll()));
     connect(ui->selectAllVisible, SIGNAL(clicked()), this, SLOT(selectAllVisible()));
 
-    // Add Remove Histograms
-    connect(ui->addHistogram, SIGNAL(clicked()), this, SLOT(addHistogram()));
-    connect(ui->removeHistogram, SIGNAL(clicked()), this, SLOT(removeHistogram()));
+    // Add Remove Correlate Histograms
+    connect(ui->addHistogram, SIGNAL(clicked()), this, SLOT(addAxis()));
+    connect(ui->removeHistogram, SIGNAL(clicked()), this, SLOT(removeAxis()));
+    connect(ui->correlateButton, SIGNAL(clicked()), this, SLOT(correlateAxes()));
 
     // Visibility buttons
     connect(ui->hideSelected, SIGNAL(clicked()), this, SLOT(hideSelected()));
@@ -164,8 +165,8 @@ MainWindow::MainWindow(QWidget *parent) :
     PCVizWidget *parallelCoordinatesViz = new PCVizWidget(this);
     ui->parallelCoordinatesLayout->addWidget(parallelCoordinatesViz);
 
-    connect(ui->selOpacity, SIGNAL(valueChanged(int)), parallelCoordinatesViz, SLOT(setSelOpacity(int)));
-    connect(ui->unselOpacity, SIGNAL(valueChanged(int)), parallelCoordinatesViz, SLOT(setUnselOpacity(int)));
+    //connect(ui->selOpacity, SIGNAL(valueChanged(int)), parallelCoordinatesViz, SLOT(setSelOpacity(int)));
+    //connect(ui->unselOpacity, SIGNAL(valueChanged(int)), parallelCoordinatesViz, SLOT(setUnselOpacity(int)));
     connect(ui->histogramBox, SIGNAL(clicked(bool)), parallelCoordinatesViz, SLOT(setShowHistograms(bool)));
     connect(ui->allBins, SIGNAL(toggled(bool)), parallelCoordinatesViz, SLOT(setLineColoringAllBins()));
     connect(ui->firstAxis, SIGNAL(toggled(bool)), parallelCoordinatesViz, SLOT(setLineColoringFirstAxis()));
@@ -321,7 +322,7 @@ int MainWindow::loadDataIBS()
         return err;
     }
 
-    setHistogramsComboBox();
+    setHistogramsComboBoxes();
 
     
 
@@ -365,14 +366,16 @@ int MainWindow::selectDirectory(QString *dest, QString directory_name){
     return 0;
 }
 
-void MainWindow::setHistogramsComboBox(){
+void MainWindow::setHistogramsComboBoxes(){
     //MemAxes builtin axes
     for(int i = 0; i < 19; i++){
-        ui->comboBox->addItem(QString("%1").arg(i, 2, 10, QLatin1Char('0')) + ": " + SampleAxesNames.at(i));
+        ui->axisComboBox1->addItem(QString("%1").arg(i, 2, 10, QLatin1Char('0')) + ": " + SampleAxesNames.at(i));
+        ui->axisComboBox2->addItem(QString("%1").arg(i, 2, 10, QLatin1Char('0')) + ": " + SampleAxesNames.at(i));
     }
     //IBS additional axes
     for(int i = 19; i < dataSet->numberOfColumns(); i++){
-        ui->comboBox->addItem(QString("%1").arg(i, 2, 10, QLatin1Char('0')) + ": " + dataSet->titleOfColumn(i));
+        ui->axisComboBox1->addItem(QString("%1").arg(i, 2, 10, QLatin1Char('0')) + ": " + dataSet->titleOfColumn(i));
+        ui->axisComboBox2->addItem(QString("%1").arg(i, 2, 10, QLatin1Char('0')) + ": " + dataSet->titleOfColumn(i));
     }
 
 }
@@ -413,18 +416,26 @@ void MainWindow::deselectAll()
     selectionChangedSlot();
 }
 
-void MainWindow::addHistogram(){
-    int err = pcViz->addHistogram(ui->comboBox->currentIndex());
+void MainWindow::addAxis(){
+    int err = pcViz->addAxis(ui->axisComboBox1->currentIndex());
     if(err == -1){
-        errdiag("Histogram for " + (ui->comboBox->itemData(ui->comboBox->currentIndex())).toString() + " already present");
+        errdiag("Histogram for " + (ui->axisComboBox1->itemData(ui->axisComboBox1->currentIndex())).toString() + " already present");
     }
 }
 
-void MainWindow::removeHistogram(){
-    int err = pcViz->removeHistogram(ui->comboBox->currentIndex());
+void MainWindow::removeAxis(){
+    int err = pcViz->removeAxis(ui->axisComboBox1->currentIndex());
     
     if(err == -1){
-        errdiag("Histogram for " + (ui->comboBox->itemData(ui->comboBox->currentIndex())).toString() + " can not be deleted: Histogram not present");
+        errdiag("Histogram for " + (ui->axisComboBox1->itemData(ui->axisComboBox1->currentIndex())).toString() + " can not be deleted: Histogram not present");
+    }
+}
+
+void MainWindow::correlateAxes(){
+    int err = pcViz->correlateAxes(ui->axisComboBox1->currentIndex(), ui->axisComboBox2->currentIndex());
+
+    if(err == -1){
+        errdiag("Correlating an Axis with itself is not allowed");
     }
 }
 
