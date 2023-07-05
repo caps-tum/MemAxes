@@ -13,6 +13,7 @@ qt5_wrap_ui(ui_form.h form.ui)
 
 # Sources and UI Files
 set(SOURCES
+  actionmanager.cpp
   codeeditor.cpp
   codevizwidget.cpp
   console.cpp
@@ -28,6 +29,7 @@ set(SOURCES
   vizwidget.cpp)
 
 set(HEADERS
+  action.h
   codeeditor.h
   codevizwidget.h
   console.h

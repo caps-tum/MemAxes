@@ -200,6 +200,17 @@ MainWindow::MainWindow(QWidget *parent) :
         connect(this, SIGNAL(visibilityChangedSig()), vizWidgets[i], SLOT(visibilityChangedSlot()));
     }
 
+    vector<QPushButton*> recommendationButtons;
+    recommendationButtons.push_back(ui->rec1);
+    recommendationButtons.push_back(ui->rec2);
+    recommendationButtons.push_back(ui->rec3);
+    ActionManager* actionManager = new ActionManager(dataSet, recommendationButtons);
+    vizWidgets.push_back(actionManager);
+
+    connect(ui->rec1, SIGNAL(clicked(bool)), actionManager, SLOT(firstButton()));
+    connect(ui->rec2, SIGNAL(clicked(bool)), actionManager, SLOT(secondButton()));
+    connect(ui->rec3, SIGNAL(clicked(bool)), actionManager, SLOT(thirdButton()));
+
     frameTimer = new QTimer(this);
     frameTimer->setInterval(1000/60); // 60fps
     connect(frameTimer,SIGNAL(timeout()),this,SLOT(frameUpdateAll()));
@@ -476,4 +487,8 @@ void MainWindow::setCodeLabel(QFile *file)
     }else{
         ui->codeLabel->setText("FILE NOT FOUND");
     }
+}
+
+void MainWindow::testSlot(int i){
+    std::cerr << "test slot triggered " << i << std::endl;
 }

@@ -50,6 +50,7 @@
 #include "varvizwidget.h"
 #include "pcvizwidget.h"
 #include "hwtopovizwidget.h"
+#include "action.h"
 
 #include "hwtopo.h"
 #include "codeeditor.h"
@@ -96,6 +97,7 @@ public slots:
     void setSelectModeOR(bool on);
     void setSelectModeXOR(bool on);
     void setCodeLabel(QFile *file);
+    void testSlot(int i);
 
 private:
     Ui::MainWindow *ui;
