@@ -133,10 +133,13 @@ private:
     ColorMap lineColorMap;
 
     QVector<QVector<qreal> > histVals;
+    float* histValMatrix;
     QVector<qreal> histMaxVals;
 
-    QVector<qreal> dimMins;
-    QVector<qreal> dimMaxes;
+    //QVector<qreal> dimMins;
+    long long* allDimMins;
+    //QVector<qreal> dimMaxes;
+    long long* allDimMaxes;
 
     QVector<qreal> selMins;
     QVector<qreal> selMaxes;

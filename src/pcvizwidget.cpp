@@ -49,7 +49,7 @@
 
 #define SNAPPING true
 #define SKIP_GL false
-#define TIME_LOGGING false
+#define TIME_LOGGING true
 
 using namespace std::chrono;
 
@@ -86,6 +86,7 @@ PCVizWidget::PCVizWidget(QWidget *parent)
 
     numHistBins = 200;
     showHistograms = true;
+    
 
     cursorPos.setX(-1);
     selectionAxis = -1;
@@ -138,11 +139,17 @@ void PCVizWidget::processData()
     // numDimensions = dataSet->numDimensions;
     numDimensions = NUM_SAMPLE_AXES;
 
-    dimMins.resize(numDimensions);
-    dimMaxes.resize(numDimensions);
+    histValMatrix = (float*)malloc(numHistBins * dataSet->getNumberOfAttributes() * sizeof(float));
+    binMatrix = (int *)malloc(dataSet->getNumberOfAttributes() * dataSet->getNumberOfSamples() * sizeof(int));
 
-    dimMins.fill(std::numeric_limits<double>::max());
-    dimMaxes.fill(std::numeric_limits<double>::min());
+    allDimMaxes = (long long *)malloc(dataSet->getNumberOfAttributes() * sizeof(long long));
+    allDimMins = (long long *)malloc(dataSet->getNumberOfAttributes() * sizeof(long long));
+
+    //dimMins.resize(numDimensions);
+    //dimMaxes.resize(numDimensions);
+
+    //dimMins.fill(std::numeric_limits<double>::max());
+    //dimMaxes.fill(std::numeric_limits<double>::min());
 
     selMins.resize(numDimensions);
     selMaxes.resize(numDimensions);
@@ -222,8 +229,8 @@ int PCVizWidget::removeAxis(int index)
     axesPositions.removeAt(indexOfAxis);
     histVals.removeAt(indexOfAxis);
     histMaxVals.removeAt(indexOfAxis);
-    dimMins.removeAt(indexOfAxis);
-    dimMaxes.removeAt(indexOfAxis);
+    //dimMins.removeAt(indexOfAxis);
+    //dimMaxes.removeAt(indexOfAxis);
     selMins.removeAt(indexOfAxis);
     selMaxes.removeAt(indexOfAxis);
 
@@ -254,8 +261,8 @@ int PCVizWidget::addAxis(int index)
     histVals[histVals.length() - 1].resize(numHistBins);
     histVals[histVals.length() - 1].fill(0);
 
-    dimMins.push_back(std::numeric_limits<double>::max());
-    dimMaxes.push_back(std::numeric_limits<double>::min());
+    //dimMins.push_back(std::numeric_limits<double>::max());
+    //dimMaxes.push_back(std::numeric_limits<double>::min());
 
     histMaxVals.push_back(0);
 
@@ -266,7 +273,7 @@ int PCVizWidget::addAxis(int index)
 
     needsRecalcLines = true;
     needsCalcHistBins = true;
-    needsCalcMinMaxes = true;
+
 
     orderByPosition();
     distributeAxes();
@@ -475,8 +482,8 @@ void PCVizWidget::processSelection()
         if (selMins[i] != -1)
         {
             selDims.push_back(axesDataIndex[i]);
-            dataSelMins.push_back(lerp(selMins[i], dimMins[i], dimMaxes[i]));
-            dataSelMaxes.push_back(lerp(selMaxes[i], dimMins[i], dimMaxes[i]));
+            dataSelMins.push_back(lerp(selMins[i], allDimMins[axesDataIndex[i]], allDimMaxes[axesDataIndex[i]]));
+            dataSelMaxes.push_back(lerp(selMaxes[i], allDimMins[axesDataIndex[i]], allDimMaxes[axesDataIndex[i]]));
         }
     }
 
@@ -521,34 +528,48 @@ void PCVizWidget::calcMinMaxes()
     if (!processed)
         return;
 
-    dimMins.fill(std::numeric_limits<double>::max());
-    dimMaxes.fill(std::numeric_limits<double>::min());
+    //dimMins.fill(std::numeric_limits<double>::max());
+    //dimMaxes.fill(std::numeric_limits<double>::min());
+
+    std::fill_n(allDimMins, dataSet->getNumberOfAttributes(), std::numeric_limits<long long>::max());
+    std::fill_n(allDimMaxes, dataSet->getNumberOfAttributes(), std::numeric_limits<long long>::min());
 
     for (int s = 0; s < dataSet->getNumberOfSamples(); s++)
     {
         if (!dataSet->visible(s))
             continue;
-        for (int i = 0; i < numDimensions; i++)
+        for (int i = 0; i < dataSet->getNumberOfAttributes(); i++)
         {
-            long long val = dataSet->GetSampleAttribByIndex(s, axesDataIndex[i]);
+            long long val = dataSet->GetSampleAttribByIndex(s, i);
 
-            dimMins[i] = std::min(dimMins[i], (qreal)val);
-            dimMaxes[i] = std::max(dimMaxes[i], (qreal)val);
+            allDimMins[i] = std::min(allDimMins[i], val);
+            allDimMaxes[i] = std::max(allDimMaxes[i], val);
         }
     }
-    // int elem;
-    // QVector<qreal>::Iterator p;
-    // for(elem=0, p=dataSet->begin; p!=dataSet->end; elem++, p+=numDimensions)
-    // {
-    //     if(!dataSet->visible(elem))
-    //         continue;
-    //
-    //     for(int i=0; i<numDimensions; i++)
-    //     {
-    //         dimMins[i] = std::min(dimMins[i],*(p+i));
-    //         dimMaxes[i] = std::max(dimMaxes[i],*(p+i));
-    //     }
-    // }
+
+    binMatrixValid = true;
+    std::fill_n(binMatrix, dataSet->getNumberOfAttributes() * dataSet->getNumberOfSamples(), -1);
+
+    for (int s = 0; s < dataSet->getNumberOfSamples(); s++)
+    {
+        for (int i = 0; i < dataSet->getNumberOfAttributes(); i++)
+        {
+            long long val = dataSet->GetSampleAttribByIndex(s, i);
+
+            int histBin = floor(scale(val, allDimMins[i], allDimMaxes[i], 0, numHistBins));
+
+            if (histBin >= numHistBins)
+                histBin = numHistBins - 1;
+            if (histBin < 0)
+                histBin = 0;
+
+
+            binMatrix[dataSet->getNumberOfSamples() * i + s] = histBin;
+            //histMaxVals[i] = std::max(histMaxVals[i], histVals[i][histBin]);
+        }
+    }
+
+
 }
 
 bool PCVizWidget::axisInteresting(int axis)
@@ -582,14 +603,11 @@ void PCVizWidget::calcHistBins()
     if (!processed)
         return;
 
-    if (binMatrixValid)
-        free(binMatrix);
-    binMatrix = (int *)malloc(dataSet->getNumberOfAttributes() * dataSet->getNumberOfSamples() * sizeof(int));
-    // std::cerr << "allocated bin matrix of size " << (dataSet->getNumberOfAttributes() * dataSet->getNumberOfSamples()) << std::endl;
-    binMatrixValid = true;
-    std::fill_n(binMatrix, dataSet->getNumberOfAttributes() * dataSet->getNumberOfSamples(), -1);
-
     histMaxVals.fill(0);
+
+    for(int i = 0; i < dataSet->getNumberOfAttributes() * dataSet->getNumberOfSamples(); i++){
+        if(binMatrix[i] < 0) std::cerr << "this is very bad" << i << "\n";
+    }
 
     for (int s = 0; s < dataSet->getNumberOfSamples(); s++)
     {
@@ -598,18 +616,8 @@ void PCVizWidget::calcHistBins()
 
         for (int i = 0; i < numDimensions; i++)
         {
-            long long val = dataSet->GetSampleAttribByIndex(s, axesDataIndex[i]);
-
-            int histBin = floor(scale(val, dimMins[i], dimMaxes[i], 0, numHistBins));
-
-            if (histBin >= numHistBins)
-                histBin = numHistBins - 1;
-            if (histBin < 0)
-                histBin = 0;
-
-            histVals[i][histBin] += 1;
-            binMatrix[dataSet->getNumberOfSamples() * axesDataIndex[i] + s] = histBin;
-            histMaxVals[i] = std::max(histMaxVals[i], histVals[i][histBin]);
+            histVals[i][binMatrix[axesDataIndex[i] * dataSet->getNumberOfSamples() + s]]++;
+            if(histVals[i][binMatrix[axesDataIndex[i] * dataSet->getNumberOfSamples() + s]] > histMaxVals[i])histMaxVals[i]++;
         }
     }
 
@@ -730,7 +738,7 @@ void PCVizWidget::recalcLines(int dirtyAxis)
 
         for (int s = 0; s < dataSet->getNumberOfSamples(); s++)
         {
-            if ((binMouseOver < 0 || condAxisStart[s] == binMouseOver) && (filterLine < 0 || filterLine == dataSet->GetSampleAttribByIndex(s, 2)))
+            if ((binMouseOver < 0 || condAxisStart[s] == binMouseOver) && (filterLine < 0 || filterLine == dataSet->GetSampleAttribByIndex(s, 2)) && !(dataSet->selectionDefined() && !dataSet->selected(s)))
             {
                 // std::cerr << "attempting to access element " << (axisStart[s] * numHistBins + axisStart[s]) << std::endl;
                 correlation[axisStart[s] * numHistBins + nextAxisStart[s]]++;
@@ -1131,13 +1139,17 @@ void PCVizWidget::highlightAxis(int index)
 
 void PCVizWidget::highlightMultipleAxes(int indexStart, int indexEnd)
 {
+    /*
+    std::cerr << indexStart << " : " << indexEnd << std::endl;
+    std::cerr << axesOrder[indexStart] << " ; " << axesOrder[indexEnd] << std::endl << std::endl;
+    std::cerr << axesPositions[indexStart] << " e " << axesPositions[indexEnd] << std::endl << std::endl;
+    */
     float widthPerElement = plotBBox.width() / numDimensions;
 
     float x1 = plotBBox.left() + axesPositions[indexStart] * plotBBox.width() - .2 * widthPerElement;
-    float x2 = plotBBox.left() + axesPositions[indexEnd] * plotBBox.width() - .2 * widthPerElement;
-    ;
+    float x2 = plotBBox.left() + axesPositions[indexEnd] * plotBBox.width() + .8 * widthPerElement;
 
-    highlightRect = QRect(x1, plotBBox.top(), x2 + widthPerElement, plotBBox.bottom());
+    highlightRect = QRect(x1, plotBBox.top(), x2 - x1, plotBBox.height());
     highlightLifetime = 20;
 }
 
@@ -1175,11 +1187,11 @@ void PCVizWidget::drawQtPainter(QPainter *painter)
 
         painter->drawText(center, text);
 
-        text = QString::number(dimMins[i], 'g', 2);
+        text = QString::number(allDimMins[axesDataIndex[i]], 'g', 2);
         center = a - QPointF(fm.horizontalAdvance(text) / 2, -10);
         painter->drawText(center, text);
 
-        text = QString::number(dimMaxes[i], 'g', 2);
+        text = QString::number(allDimMaxes[axesDataIndex[i]], 'g', 2);
         center = b - QPointF(fm.horizontalAdvance(text) / 2, 0);
         painter->drawText(center, text);
     }
@@ -1217,7 +1229,7 @@ void PCVizWidget::drawQtPainter(QPainter *painter)
         }
     }
 
-    // draw highligh box
+    // draw highlight box
     painter->setPen(QPen(Qt::magenta, 3, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
     if (highlightLifetime > 0)
     {

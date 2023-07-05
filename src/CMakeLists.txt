@@ -26,6 +26,7 @@ set(SOURCES
   parseUtil.cpp
   util.cpp
   varvizwidget.cpp
+  vizactions.cpp
   vizwidget.cpp)
 
 set(HEADERS
