@@ -411,11 +411,35 @@ bool PCVizWidget::eventFilter(QObject *obj, QEvent *event)
                         int correlatedFileUID = (strongestBin + 1) * allDimMaxes[1] / numHistBins;
 
                         emit selectSourceFileByIndex(correlatedFileUID);
-                        std::cerr << "emitted select source file by index signal\n";
+                        //std::cerr << "emitted select source file by index signal\n";
                         emit lineSelected(dataSet->GetSampleAttribByIndex(s, 2));
                         // std::cerr << "emitting select signal " << (dataSet->GetSampleAttribByIndex(s, 2)) << std::endl;
                         break;
                     }
+
+                }
+            }
+            //instruction UID correlation
+            if (axesDataIndex[axisMouseOver] == 3)
+            {
+                // find first element in bin
+                for (int s = 0; s < dataSet->getNumberOfSamples(); s++)
+                {
+                    if (binMatrix[3 * dataSet->getNumberOfSamples() + s] == binMouseOver)
+                    {
+                        //find source uid of strongest correlated source file
+                        int mat[numHistBins * numHistBins];
+                        dataCorrelationMatrix(1, 3, mat);
+                        int strongestBin = strongestIncomingCor(mat, binMouseOver);
+                        int correlatedFileUID = (strongestBin + 1) * allDimMaxes[1] / numHistBins;
+
+                        emit selectSourceFileByIndex(correlatedFileUID);
+                        //std::cerr << "emitted select source file by index signal\n";
+                        emit lineSelected(dataSet->GetSampleAttribByIndex(s, 2));
+                        // std::cerr << "emitting select signal " << (dataSet->GetSampleAttribByIndex(s, 2)) << std::endl;
+                        break;
+                    }
+
                 }
             }
         }

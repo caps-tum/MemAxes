@@ -49,6 +49,8 @@ class CorrelateIBSL1TLBMissInstructionLine: public VizAction{
         bool applicable() override;
         float heuristic() override;
         void perform() override;
+    private:
+        int l1tlbmissIndex;
 };
 
 class CorrelateL1DCMissInstructionLine: public VizAction{
