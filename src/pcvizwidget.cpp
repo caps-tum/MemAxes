@@ -49,7 +49,7 @@
 
 #define SNAPPING true
 #define SKIP_GL false
-#define TIME_LOGGING true
+#define TIME_LOGGING false
 
 using namespace std::chrono;
 
@@ -84,7 +84,7 @@ PCVizWidget::PCVizWidget(QWidget *parent)
     selOpacity = 0.4;
     unselOpacity = 0.1;
 
-    numHistBins = 200;
+    numHistBins = 50;
     showHistograms = true;
     
 
@@ -404,6 +404,14 @@ bool PCVizWidget::eventFilter(QObject *obj, QEvent *event)
                 {
                     if (binMatrix[2 * dataSet->getNumberOfSamples() + s] == binMouseOver)
                     {
+                        //find source uid of strongest correlated source file
+                        int mat[numHistBins * numHistBins];
+                        dataCorrelationMatrix(1, 2, mat);
+                        int strongestBin = strongestIncomingCor(mat, binMouseOver);
+                        int correlatedFileUID = (strongestBin + 1) * allDimMaxes[1] / numHistBins;
+
+                        emit selectSourceFileByIndex(correlatedFileUID);
+                        std::cerr << "emitted select source file by index signal\n";
                         emit lineSelected(dataSet->GetSampleAttribByIndex(s, 2));
                         // std::cerr << "emitting select signal " << (dataSet->GetSampleAttribByIndex(s, 2)) << std::endl;
                         break;
@@ -466,6 +474,21 @@ int PCVizWidget::getClosestAxis(int xval)
         }
     }
     return closestAxis;
+}
+
+void PCVizWidget::selectValRange(int dataIndex, float rangeMin, float rangeMax){
+    selMins[axesDataIndex.indexOf(dataIndex)] = scale(rangeMin, allDimMins[dataIndex], allDimMaxes[dataIndex], 0, 1);
+    selMaxes[axesDataIndex.indexOf(dataIndex)] = scale(rangeMax, allDimMins[dataIndex], allDimMaxes[dataIndex], 0, 1);
+
+    needsProcessSelection = true;
+}
+
+
+void PCVizWidget::selectValRelativeRange(int dataIndex, float rangeMin, float rangeMax){
+    selMins[axesDataIndex.indexOf(dataIndex)] = rangeMin;
+    selMaxes[axesDataIndex.indexOf(dataIndex)] = rangeMax;
+
+    needsProcessSelection = true;
 }
 
 void PCVizWidget::processSelection()
@@ -676,6 +699,35 @@ bool orderByFirst(tuple<float, float, float> a, tuple<float, float, float> b)
     return (get<0>(a) < get<0>(b));
 }
 
+void PCVizWidget::dataCorrelationMatrix(int dataIndex1, int dataIndex2, int* mat){
+    std::fill(mat, mat + numHistBins * numHistBins, 0);
+
+    int* bins1Start = &binMatrix[dataIndex1 * dataSet->getNumberOfSamples()];
+    int* bins2Start = &binMatrix[dataIndex2 * dataSet->getNumberOfSamples()];
+
+    for(int s = 0; s < dataSet->getNumberOfSamples(); s++){
+        mat[bins1Start[s] * numHistBins + bins2Start[s]]++;
+    }
+}
+
+int PCVizWidget::strongestOutgoingCor(int* mat, int outgoingBin){
+    int max = 0;
+    int strongestLine = -1;
+    for(int j = 0; j < numHistBins; j++){
+        if(mat[numHistBins * outgoingBin + j] > max) strongestLine = j;
+    }
+    return strongestLine;
+}
+
+int PCVizWidget::strongestIncomingCor(int* mat, int incomingBin){
+    int max = 0;
+    int strongestColumn = -1;
+    for(int i = 0; i < numHistBins; i++){
+        if(mat[numHistBins * i + incomingBin] > max) strongestColumn = i;
+    }
+    return strongestColumn;
+}
+
 // calculates vertex positions for drawing connection lines between neighboring histograms
 void PCVizWidget::recalcLines(int dirtyAxis)
 {
@@ -732,7 +784,9 @@ void PCVizWidget::recalcLines(int dirtyAxis)
         // printVector(axesOrder);
         // if(axis == axesOrder.indexOf(axisMouseOver))std::cerr << "axisMouseOver" << axisMouseOver << "axis: "<< axis << " nextAxis: " << nextAxis << "condAxis: "<< condAxis << "data at Axis: " << axesDataIndex[axis] << " data at nextAxis: " << axesDataIndex[nextAxis] << " binMatrix: " << binMatrix << std::endl;
 
-        int correlation[numHistBins * numHistBins] = {};
+        int correlation[numHistBins * numHistBins];
+
+        std::fill(correlation, correlation + numHistBins * numHistBins, 0);
 
         // std::cerr << "number of samples to iterate "<<(dataSet->getNumberOfSamples()) << std::endl;
 
@@ -1167,6 +1221,8 @@ void PCVizWidget::drawQtPainter(QPainter *painter)
                       width() - mx - mx,
                       height() - my - my);
 
+    float xSpacePerAxis = plotBBox.width() / numDimensions;
+
     // Draw axes
     QPointF a = plotBBox.bottomLeft();
     QPointF b = plotBBox.topLeft();
@@ -1259,7 +1315,7 @@ void PCVizWidget::drawQtPainter(QPainter *painter)
                 qreal histTop = a.y() - (j + 1) * (plotBBox.height() / numHistBins);
                 qreal histLeft = a.x(); //-30*histVals[i][j];
                 qreal histBottom = a.y() - (j) * (plotBBox.height() / numHistBins);
-                qreal histRight = a.x() + 60 * histVals[i][j];
+                qreal histRight = a.x() + xSpacePerAxis * .9 * histVals[i][j];
                 painter->drawRect(QRectF(QPointF(histLeft, histTop), QPointF(histRight, histBottom)));
             }
 

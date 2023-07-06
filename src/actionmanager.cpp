@@ -21,6 +21,12 @@ ActionManager::ActionManager(DataObject *dataSetIn, vector<QPushButton *> button
     CorrelateIBSL2TLBMissInstructionLine *corL2TLBInsLine = new CorrelateIBSL2TLBMissInstructionLine(pcViz, dataSet);
     actions.push_back(corL2TLBInsLine);
 
+    CorrelateIBSL1TLBMissInstructionLine *corL1TLBInsLine = new CorrelateIBSL1TLBMissInstructionLine(pcViz, dataSet);
+    actions.push_back(corL1TLBInsLine);
+
+    CorrelateL1DCMissInstructionLine *corL1DCMissInsLine = new CorrelateL1DCMissInstructionLine(pcViz, dataSet);
+    actions.push_back(corL1DCMissInsLine);
+
     bindButtonToAction(0, 0);
     bindButtonToAction(1,1);
 
@@ -58,6 +64,7 @@ void ActionManager::actionButtonClicked(int index)
     }
 
     actions[buttonActionMapping[index]]->perform();
+    sortActions();
 }
 
 void ActionManager::bindButtonToAction(int buttonId, int actionId)

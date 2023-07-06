@@ -281,6 +281,11 @@ void CodeViz::mouseReleaseEvent(QMouseEvent *e)
     }
 }
 
+void CodeViz::selectFileByIndex(int index){
+    std::cerr << "select file signal received\n";
+    emit sourceFileSelected(sourceBlocks[index].file);
+}
+
 void CodeViz::leaveEvent(QEvent *e){
     emit sourceLineHover(-1);
 }

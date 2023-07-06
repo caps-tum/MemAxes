@@ -81,11 +81,13 @@ protected:
     int sourceBlockMouseOver(QPoint mousePos);
 
     void mouseReleaseEvent(QMouseEvent *e);
+    
     void leaveEvent(QEvent *event);
     bool eventFilter(QObject *obj, QEvent *event);
 
 public slots:
     void setSourceDir(QString dir);
+    void selectFileByIndex(int index);
 
 private:
     int getFileID(QString name);

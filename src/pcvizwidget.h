@@ -55,7 +55,12 @@ public:
     PCVizWidget(QWidget *parent = 0);
 
 public:
+    void dataCorrelationMatrix(int dataIndex1, int dataIndex2, int *mat);
     void recalcLines(int dirtyAxis = -1);
+    int strongestOutgoingCor(int* mat, int outgoingBin);
+    int strongestIncomingCor(int* mat, int incomingBin);
+    void selectValRange(int dataIndex, float rangeMin, float rangeMax);
+    void selectValRelativeRange(int dataIndex, float rangeMin, float rangeMax);
     int removeAxis(int index);
     int addAxis(int index);
     int correlateAxes(int dataIndex1, int dataIndex2);
@@ -63,6 +68,7 @@ public:
 
 signals:
     void lineSelected(int line);
+    void selectSourceFileByIndex(int index);
 
 public slots:
     void frameUpdate();

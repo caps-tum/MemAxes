@@ -29,7 +29,25 @@ class CorrelateDatasourceInstructionLine: public VizAction{
 class CorrelateIBSL2TLBMissInstructionLine: public VizAction{
     public:
         CorrelateIBSL2TLBMissInstructionLine(PCVizWidget* pcVizIn, DataObject* dataSetIn);
-        string title() override {return "Correlate Code Lines with IBS L2 TLB misses";};
+        string title() override {return "Correlate Code Lines with IBS L2 TLB data";};
+        bool applicable() override;
+        float heuristic() override;
+        void perform() override;
+};
+
+class CorrelateIBSL1TLBMissInstructionLine: public VizAction{
+    public:
+        CorrelateIBSL1TLBMissInstructionLine(PCVizWidget* pcVizIn, DataObject* dataSetIn);
+        string title() override {return "Correlate Code Lines with IBS L1 TLB data";};
+        bool applicable() override;
+        float heuristic() override;
+        void perform() override;
+};
+
+class CorrelateL1DCMissInstructionLine: public VizAction{
+    public:
+        CorrelateL1DCMissInstructionLine(PCVizWidget* pcVizIn, DataObject* dataSetIn);
+        string title() override {return "Correlate Code Lines with L1 Data Cache Misses";};
         bool applicable() override;
         float heuristic() override;
         void perform() override;
