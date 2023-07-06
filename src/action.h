@@ -13,7 +13,12 @@ class VizAction{
     protected:
         DataObject* dataSet;
         PCVizWidget* pcViz;
-
+        int ibsAxisAvailable(string axisName){
+            for(int i = 0; i < dataSet->getNumberOfAttributes(); i++){
+                if(dataSet->GetAttributeName(i) == axisName)return i;
+            }
+            return -1;
+        }
 
 };
 
@@ -33,6 +38,8 @@ class CorrelateIBSL2TLBMissInstructionLine: public VizAction{
         bool applicable() override;
         float heuristic() override;
         void perform() override;
+    private:
+        int l2tlbmissIndex;
 };
 
 class CorrelateIBSL1TLBMissInstructionLine: public VizAction{
@@ -57,6 +64,7 @@ class ActionManager : public VizWidget{
     Q_OBJECT
     public:
         ActionManager(DataObject* dataSetIn, vector<QPushButton*> buttonsIn, PCVizWidget* pcViz);
+        void loadDataset(DataObject* dataSetIn);
 
     public slots:
         void firstButton();
@@ -67,6 +75,7 @@ class ActionManager : public VizWidget{
         void actionButtonClicked(int index);
         void sortActions();
         void bindButtonToAction(int buttonId, int actionId);
+
         
 
     private:
@@ -74,6 +83,7 @@ class ActionManager : public VizWidget{
         vector<QPushButton*> buttons;
         vector<int> buttonActionMapping;
         DataObject* dataSet;
+        PCVizWidget* pcViz;
 };
 
 #endif

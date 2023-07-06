@@ -7,6 +7,7 @@ bool orderByHeuristic(VizAction* a, VizAction* b){
 ActionManager::ActionManager(DataObject *dataSetIn, vector<QPushButton *> buttonsIn, PCVizWidget *pcViz)
 {
     dataSet = dataSetIn;
+    this->pcViz = pcViz;
     buttons = buttonsIn;
 
     for (QPushButton *button : buttons)
@@ -15,22 +16,7 @@ ActionManager::ActionManager(DataObject *dataSetIn, vector<QPushButton *> button
         buttonActionMapping.push_back(-1);
     }
 
-    CorrelateDatasourceInstructionLine *corDataInsLine = new CorrelateDatasourceInstructionLine(pcViz, dataSet);
-    actions.push_back(corDataInsLine);
-
-    CorrelateIBSL2TLBMissInstructionLine *corL2TLBInsLine = new CorrelateIBSL2TLBMissInstructionLine(pcViz, dataSet);
-    actions.push_back(corL2TLBInsLine);
-
-    CorrelateIBSL1TLBMissInstructionLine *corL1TLBInsLine = new CorrelateIBSL1TLBMissInstructionLine(pcViz, dataSet);
-    actions.push_back(corL1TLBInsLine);
-
-    CorrelateL1DCMissInstructionLine *corL1DCMissInsLine = new CorrelateL1DCMissInstructionLine(pcViz, dataSet);
-    actions.push_back(corL1DCMissInsLine);
-
-    bindButtonToAction(0, 0);
-    bindButtonToAction(1,1);
-
-    sortActions();
+    
 }
 
 void ActionManager::firstButton()
@@ -71,4 +57,22 @@ void ActionManager::bindButtonToAction(int buttonId, int actionId)
 {
     buttons[buttonId]->setText(QString::fromStdString(actions[actionId]->title()));
     buttonActionMapping[buttonId] = actionId;
+}
+
+void ActionManager::loadDataset(DataObject* dataSetIn){
+    dataSet = dataSetIn;
+
+    CorrelateDatasourceInstructionLine *corDataInsLine = new CorrelateDatasourceInstructionLine(pcViz, dataSet);
+    if(corDataInsLine->applicable())actions.push_back(corDataInsLine);
+
+    CorrelateIBSL2TLBMissInstructionLine *corL2TLBInsLine = new CorrelateIBSL2TLBMissInstructionLine(pcViz, dataSet);
+    if(corL2TLBInsLine->applicable())actions.push_back(corL2TLBInsLine);
+
+    CorrelateIBSL1TLBMissInstructionLine *corL1TLBInsLine = new CorrelateIBSL1TLBMissInstructionLine(pcViz, dataSet);
+    if(corL1TLBInsLine->applicable())actions.push_back(corL1TLBInsLine);
+
+    CorrelateL1DCMissInstructionLine *corL1DCMissInsLine = new CorrelateL1DCMissInstructionLine(pcViz, dataSet);
+    if(corL1DCMissInsLine->applicable())actions.push_back(corL1DCMissInsLine);
+
+    sortActions();
 }

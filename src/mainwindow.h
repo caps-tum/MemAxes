@@ -111,6 +111,7 @@ private:
 
     QVector<VizWidget*> vizWidgets;
     PCVizWidget *pcViz;
+    ActionManager* actionManager;
     //VolumeVizWidget *volumeVizWidget;
 
     QString dataDir;

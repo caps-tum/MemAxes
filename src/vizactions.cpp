@@ -25,7 +25,8 @@ CorrelateIBSL2TLBMissInstructionLine::CorrelateIBSL2TLBMissInstructionLine(PCViz
 }
 
 bool CorrelateIBSL2TLBMissInstructionLine::applicable(){
-    return true;
+    l2tlbmissIndex = ibsAxisAvailable("ibs_dc_l2_tlb_miss");
+    return l2tlbmissIndex >= 0;
 }
 
 float CorrelateIBSL2TLBMissInstructionLine::heuristic(){

@@ -205,7 +205,7 @@ MainWindow::MainWindow(QWidget *parent) :
     recommendationButtons.push_back(ui->rec1);
     recommendationButtons.push_back(ui->rec2);
     recommendationButtons.push_back(ui->rec3);
-    ActionManager* actionManager = new ActionManager(dataSet, recommendationButtons, pcViz);
+    actionManager = new ActionManager(dataSet, recommendationButtons, pcViz);
     vizWidgets.push_back(actionManager);
 
     connect(ui->rec1, SIGNAL(clicked(bool)), actionManager, SLOT(firstButton()));
@@ -344,6 +344,7 @@ int MainWindow::loadDataIBS()
         vizWidgets[i]->update();
     }
     visibilityChangedSlot();
+    actionManager->loadDataset(dataSet);
     return 0;
 }
 
