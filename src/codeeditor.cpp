@@ -124,10 +124,52 @@ void CodeEditor::highlightCurrentLine()
     nonUserCursorChange = 1;
 }
 
+QColor CodeEditor::highlightColors(float strength)
+{
+    //std::cerr << "color using strength " << strength << std::endl;
+    QColor ret;
+    ret.setHsl((int)(84 - 64 * strength), 255, (int)(217 - 90 * strength));
+    //std::cerr << (217 - 90 * strength) << std::endl;
+    return ret;
+}
+
+void CodeEditor::highlightLines(vector<tuple<int, float>> lines)
+{
+    QList<QTextEdit::ExtraSelection> extraSelections;
+
+    
+
+    int maxLine = 0;
+    float maxVal = 0;
+
+    for (tuple<int, float> line : lines)
+    {
+        QTextEdit::ExtraSelection selection;
+        if (get<1>(line) > maxVal)
+        {
+            maxVal = get<1>(line);
+            maxLine = get<0>(line);
+        }
+
+        //std::cerr << "highlight line value " <<  get<1>(line) << std::endl;
+        QColor hColor = highlightColors(get<1>(line));
+
+        //std::cerr << hColor.red() << std::endl;
+
+        selection.format.setBackground(hColor);
+        selection.format.setProperty(QTextFormat::FullWidthSelection, true);
+        selection.cursor = QTextCursor(document()->findBlockByLineNumber(get<0>(line) - 1));
+        selection.cursor.clearSelection();
+        extraSelections.append(selection);
+    }
+
+    setExtraSelections(extraSelections);
+}
+
 void CodeEditor::setLine(int line)
 {
-    //std::cerr << "receiving set line signal " << line << std::endl;
-    // code view starts at 1
+    // std::cerr << "receiving set line signal " << line << std::endl;
+    //  code view starts at 1
     line--;
     nonUserCursorChange = 0;
 
@@ -141,11 +183,14 @@ void CodeEditor::setLine(int line)
 
 void CodeEditor::setFile(QFile *file)
 {
-    if(file != nullptr){
+    if (file != nullptr)
+    {
         QTextStream codeStream(file);
         this->setPlainText(codeStream.readAll());
         file->reset();
-    }else{
+    }
+    else
+    {
         this->setPlainText("FILLE COULD NOT BE FOUND");
     }
 }

@@ -69,6 +69,7 @@ signals:
 public slots:
     void setLine(int line);
     void setFile(QFile *file);
+    void highlightLines(vector<tuple<int, float>> lines);
 
 protected:
     void resizeEvent(QResizeEvent *event);
@@ -76,6 +77,8 @@ protected:
 private slots:
     void updateLineNumberAreaWidth(int newBlockCount);
     void highlightCurrentLine();
+    QColor highlightColors(float strength);
+    
     void updateLineNumberArea(const QRect &, int);
 
 private:

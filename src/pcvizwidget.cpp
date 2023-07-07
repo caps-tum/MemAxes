@@ -355,6 +355,14 @@ float PCVizWidget::yToSelection(float y)
     return 1.0 - scale(y, plotBBox.top(), plotBBox.bottom(), 0, 1);
 }
 
+int PCVizWidget::sourceLineOfBin(int bin){
+    for(int s = 0; s < dataSet->getNumberOfSamples(); s++){
+        if(binMatrix[2 * dataSet->getNumberOfSamples() + s] == bin)return dataSet->GetSampleAttribByIndex(s, 2);
+    }
+
+    return bin * allDimMaxes[2] / numHistBins;
+}
+
 bool PCVizWidget::eventFilter(QObject *obj, QEvent *event)
 {
     Q_UNUSED(obj);
@@ -418,30 +426,32 @@ bool PCVizWidget::eventFilter(QObject *obj, QEvent *event)
                     }
 
                 }
-            }
-            //instruction UID correlation
-            if (axesDataIndex[axisMouseOver] == 3)
-            {
-                // find first element in bin
-                for (int s = 0; s < dataSet->getNumberOfSamples(); s++)
-                {
-                    if (binMatrix[3 * dataSet->getNumberOfSamples() + s] == binMouseOver)
-                    {
-                        //find source uid of strongest correlated source file
-                        int mat[numHistBins * numHistBins];
-                        dataCorrelationMatrix(1, 3, mat);
-                        int strongestBin = strongestIncomingCor(mat, binMouseOver);
-                        int correlatedFileUID = (strongestBin + 1) * allDimMaxes[1] / numHistBins;
+            }else{
+                //colored code highlighting
+                int mat[numHistBins * numHistBins];
+                dataCorrelationMatrix(axesDataIndex[axisMouseOver], 2, mat);
+                int* lineCorrelations = &mat[numHistBins * binMouseOver];
+                int max = *std::max_element(lineCorrelations, lineCorrelations + numHistBins);
 
-                        emit selectSourceFileByIndex(correlatedFileUID);
-                        //std::cerr << "emitted select source file by index signal\n";
-                        emit lineSelected(dataSet->GetSampleAttribByIndex(s, 2));
-                        // std::cerr << "emitting select signal " << (dataSet->GetSampleAttribByIndex(s, 2)) << std::endl;
-                        break;
+                vector<tuple<int, float>> highlightVector;
+                for(int i = 0; i < numHistBins; i++){
+                    if(lineCorrelations[i] != 0){
+                        //TODO add element to highlight vector
+                        highlightVector.push_back(make_tuple(sourceLineOfBin(i), (float)lineCorrelations[i] / (float)max));
                     }
-
                 }
+
+                emit highlightLines(highlightVector);
             }
+            //instruction tooltip
+            if(axesDataIndex[axisMouseOver] == 3){
+                int instructionUID = scale(binMouseOver, 0, numHistBins - 1, allDimMins[3], allDimMaxes[3]);
+                QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
+                QToolTip::showText(mouseEvent->globalPos(), dataSet->getInstruction(instructionUID), this, rect());
+            }else{
+                QToolTip::hideText();
+            }
+
         }
         else
         {

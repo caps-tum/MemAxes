@@ -43,6 +43,7 @@
 
 #include <QVector2D>
 #include <QVector4D>
+#include <QToolTip>
 
 enum LineColorMode{allBins, firstAxis, secondAxis};
 
@@ -69,6 +70,7 @@ public:
 signals:
     void lineSelected(int line);
     void selectSourceFileByIndex(int index);
+    void highlightLines(vector<tuple<int, float>> lines);
 
 public slots:
     void frameUpdate();
@@ -119,7 +121,8 @@ private:
     void eliminateEmptyAxes();
     void calcHistBins();
     float yToSelection(float y);
-    
+
+    int sourceLineOfBin(int bin);
 
 private:
     bool needsRecalcLines;

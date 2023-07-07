@@ -679,7 +679,6 @@ int DataObject::parseCSVFile(QString dataFileName)
 
     QVector<QString> varVec;
     QVector<QString> sourceVec;
-    QVector<QString> instrVec;
     header = line.split(',');
 
     //allocate sample matrix
@@ -714,9 +713,7 @@ int DataObject::parseCSVFile(QString dataFileName)
         s.sourceUid = createUniqueID(sourceVec,lineValues[header.indexOf("source")]); 
         s.source = lineValues[header.indexOf("source")]; // source file absolute path
         s.line = lineValues[header.indexOf("line")].toLongLong(); // line in source file
-        int oldNumberInstrUIDs = instrVec.size();
         s.instructionUid = createUniqueID(instrVec,lineValues[header.indexOf("instruction")]);
-        if(s.instructionUid == oldNumberInstrUIDs)instrUIDToLine.push_back(s.line);
         s.instruction = lineValues[header.indexOf("instruction")]; //instruction type
         s.bytes = lineValues[header.indexOf("bytes")].toLongLong();
         s.ip = lineValues[header.indexOf("ip")].toLongLong(); // instruction pointer
@@ -1225,5 +1222,9 @@ string DataObject::GetAttributeName(int index){
 
 long long * DataObject::GetSampleMatrix(){
     return sampleMatrix;
+}
+
+QString DataObject::getInstruction(int instructionUID){
+    return instrVec[instructionUID];
 }
 

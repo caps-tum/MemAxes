@@ -202,7 +202,7 @@ private:
     int numAttributes;
     vector<string> sourceFiles;
     vector<string> attributeNames;
-    QVector<int> instrUIDToLine;
+
 
     
 public:
@@ -241,6 +241,7 @@ public:
     int getNumberOfAttributes();
     string GetAttributeName(int index);
     long long *GetSampleMatrix();
+    QString getInstruction(int instructionUID);
     // void constructSortedLists();
 
     // qreal at(int i, int d) const { return vals[i*numDimensions+d]; }
@@ -300,6 +301,7 @@ private:
     QVector<qreal> sample_maxes;
     QVector<qreal> sample_means;
     QVector<qreal> sample_stdevs;
+    QVector<QString> instrVec;
 
     QStringList header;
     // Sample sample_covarianceMatrix;
