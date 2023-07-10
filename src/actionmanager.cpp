@@ -4,60 +4,37 @@ bool orderByHeuristic(VizAction* a, VizAction* b){
     return a->heuristic() > b->heuristic();
 }
 
-ActionManager::ActionManager(DataObject *dataSetIn, vector<QPushButton *> buttonsIn, PCVizWidget *pcViz)
+ActionManager::ActionManager(DataObject *dataSetIn, PCVizWidget *pcViz, QLineEdit *searchbarNew)
 {
     dataSet = dataSetIn;
     this->pcViz = pcViz;
-    buttons = buttonsIn;
-
-    for (QPushButton *button : buttons)
-    {
-        button->setText("this button belongs to ActionManager");
-        buttonActionMapping.push_back(-1);
-    }
-
+    this->searchbar = searchbarNew;
+    searchbar->setPlaceholderText("type in action command");
     
 }
 
-void ActionManager::firstButton()
-{
-    actionButtonClicked(0);
-}
-
-void ActionManager::secondButton()
-{
-    actionButtonClicked(1);
-}
-
-void ActionManager::thirdButton()
-{
-    actionButtonClicked(2);
-}
 
 void ActionManager::sortActions(){
     std::sort(actions.begin(), actions.end(), orderByHeuristic);
-    for(int i = 0; i < buttons.size() && i < actions.size(); i++){
-        bindButtonToAction(i, i);
-    }
+    
 }
 
-void ActionManager::actionButtonClicked(int index)
-{
-    if (buttonActionMapping[index] < 0)
-    {
-        std::cerr << "clicked unassigned button with index " << index << std::endl;
-        return;
-    }
+void ActionManager::textEdited(QString text){
+    //connection text code
+    //std::cerr << text.toStdString() << std::endl;
 
-    actions[buttonActionMapping[index]]->perform();
-    sortActions();
+
 }
 
-void ActionManager::bindButtonToAction(int buttonId, int actionId)
-{
-    buttons[buttonId]->setText(QString::fromStdString(actions[actionId]->title()));
-    buttonActionMapping[buttonId] = actionId;
+void ActionManager::returnPressed(){
+    //connection test code
+    //std::cerr << "action manager received return pressed signal\n";
+    searchbar->clear();
+    
+
 }
+
+
 
 void ActionManager::loadDataset(DataObject* dataSetIn){
     dataSet = dataSetIn;
@@ -75,4 +52,11 @@ void ActionManager::loadDataset(DataObject* dataSetIn){
     if(corL1DCMissInsLine->applicable())actions.push_back(corL1DCMissInsLine);
 
     sortActions();
+
+    QStringList wordlist;
+    wordlist << "test 1" << "test 2";
+    QCompleter* completer = new QCompleter(wordlist, this);
+    completer->setCompletionMode(QCompleter::PopupCompletion);
+
+    searchbar->setCompleter(completer);
 }

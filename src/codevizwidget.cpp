@@ -68,6 +68,8 @@ CodeViz::CodeViz(QWidget *parent) : VizWidget(parent)
 
     processed = false;
     sourceDir = "NOT SELECTED";
+
+    codeJumping = true;
 }
 
 CodeViz::~CodeViz()
@@ -182,7 +184,7 @@ void CodeViz::processData()
         std::sort(sourceBlocks[j].lineBlocks.begin(), sourceBlocks[j].lineBlocks.end());
 
     emit sourceFileSelected(sourceBlocks[0].file);
-    //emit sourceLineSelected(sourceBlocks[0].lineBlocks[0].line);
+    // emit sourceLineSelected(sourceBlocks[0].lineBlocks[0].line);
 
     processed = true;
 }
@@ -281,12 +283,14 @@ void CodeViz::mouseReleaseEvent(QMouseEvent *e)
     }
 }
 
-void CodeViz::selectFileByIndex(int index){
-    //std::cerr << "select file signal received\n";
+void CodeViz::selectFileByIndex(int index)
+{
+    // std::cerr << "select file signal received\n";
     emit sourceFileSelected(sourceBlocks[index].file);
 }
 
-void CodeViz::leaveEvent(QEvent *e){
+void CodeViz::leaveEvent(QEvent *e)
+{
     emit sourceLineHover(-1);
 }
 
@@ -301,30 +305,31 @@ bool CodeViz::eventFilter(QObject *obj, QEvent *event)
     QPoint mousePos = mouseEvent->pos();
     // QPoint mouseDelta = mousePos - prevMousePos;
 
-    
-
     if (event->type() == QEvent::MouseMove)
     {
-        int i = sourceBlockMouseOver(mousePos);
-        if(i < 0)return false;
-        for (int j = 0; j < sourceBlocks[i].lineBlocks.size(); j++)
+        if (codeJumping)
         {
-            QRect lineSelectionBox(sourceBlocks[i].block.left(),
-                                   sourceBlocks[i].lineBlocks[j].block.top(),
-                                   rect().width(),
-                                   sourceBlocks[i].lineBlocks[j].block.height());
-            if (lineSelectionBox.contains(mousePos))
-            {
-                // int dim = dataSet->lineDim;
-                qreal lineval = sourceBlocks[i].lineBlocks[j].line;
-
-                
-                // dataSet->selectByDimRange(dim,lineval-1,lineval);
-
-                emit sourceLineHover(sourceBlocks[i].lineBlocks[j].line);
-                emit sourceFileSelected(sourceBlocks[i].file);
-                emit sourceLineSelected(sourceBlocks[i].lineBlocks[j].line);
+            int i = sourceBlockMouseOver(mousePos);
+            if (i < 0)
                 return false;
+            for (int j = 0; j < sourceBlocks[i].lineBlocks.size(); j++)
+            {
+                QRect lineSelectionBox(sourceBlocks[i].block.left(),
+                                       sourceBlocks[i].lineBlocks[j].block.top(),
+                                       rect().width(),
+                                       sourceBlocks[i].lineBlocks[j].block.height());
+                if (lineSelectionBox.contains(mousePos))
+                {
+                    // int dim = dataSet->lineDim;
+                    qreal lineval = sourceBlocks[i].lineBlocks[j].line;
+
+                    // dataSet->selectByDimRange(dim,lineval-1,lineval);
+
+                    emit sourceLineHover(sourceBlocks[i].lineBlocks[j].line);
+                    emit sourceFileSelected(sourceBlocks[i].file);
+                    emit sourceLineSelected(sourceBlocks[i].lineBlocks[j].line);
+                    return false;
+                }
             }
         }
     }
@@ -343,4 +348,9 @@ void CodeViz::closeAll()
         if (sourceBlocks[i].file != nullptr)
             sourceBlocks[i].file->close();
     }
+}
+
+void CodeViz::toggleCodeJumping()
+{
+    codeJumping = !codeJumping;
 }

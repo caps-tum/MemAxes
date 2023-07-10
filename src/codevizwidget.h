@@ -88,11 +88,14 @@ protected:
 public slots:
     void setSourceDir(QString dir);
     void selectFileByIndex(int index);
+    void toggleCodeJumping();
 
 private:
     int getFileID(QString name);
     int getLineID(sourceBlock *src, int line);
     void closeAll();
+
+    
 
 private:
     int margin;
@@ -105,6 +108,8 @@ private:
 
     qreal sourceMaxVal;
     QVector<sourceBlock> sourceBlocks;
+
+    bool codeJumping;
 };
 
 #endif // CODEVIZ_H

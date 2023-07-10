@@ -2,6 +2,8 @@
 #define VIZACTIONS_H
 #include "pcvizwidget.h"
 #include <QPushButton>
+#include <QLineEdit>
+#include <QCompleter>
 
 
 class VizAction{
@@ -65,27 +67,24 @@ class CorrelateL1DCMissInstructionLine: public VizAction{
 class ActionManager : public VizWidget{
     Q_OBJECT
     public:
-        ActionManager(DataObject* dataSetIn, vector<QPushButton*> buttonsIn, PCVizWidget* pcViz);
+        ActionManager(DataObject* dataSetIn, PCVizWidget* pcViz, QLineEdit* searchbarNew);
         void loadDataset(DataObject* dataSetIn);
 
     public slots:
-        void firstButton();
-        void secondButton();
-        void thirdButton();
+        void returnPressed();
+        void textEdited(QString text);
 
     private:
-        void actionButtonClicked(int index);
         void sortActions();
-        void bindButtonToAction(int buttonId, int actionId);
+
 
         
 
     private:
         vector<VizAction*> actions;
-        vector<QPushButton*> buttons;
-        vector<int> buttonActionMapping;
         DataObject* dataSet;
         PCVizWidget* pcViz;
+        QLineEdit* searchbar;
 };
 
 #endif

@@ -93,6 +93,8 @@ public slots:
 
     void setFilterLine(int);
 
+    void toggleCodeJumping();
+
 protected:
     void processData();
     void paintGL();
@@ -173,6 +175,7 @@ private:
     int axisMouseOver;
 
     bool showHistograms;
+    bool codeJumping;
 
     int* binMatrix;
     bool binMatrixValid;

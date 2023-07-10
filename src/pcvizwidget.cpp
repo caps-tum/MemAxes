@@ -97,6 +97,7 @@ PCVizWidget::PCVizWidget(QWidget *parent)
     axisMouseOver = -1;
     binMouseOver = -1;
     binsInitialize = true;
+    codeJumping = true;
 
     binMatrixValid = false;
     lineStyle = allBins;
@@ -406,7 +407,7 @@ bool PCVizWidget::eventFilter(QObject *obj, QEvent *event)
             // if(histVals[axisMouseOver][binMouseOver] == 0)binMouseOver = -1;
             needsRecalcLines = true;
             // line selection stuff
-            if (axesDataIndex[axisMouseOver] == 2)
+            if (axesDataIndex[axisMouseOver] == 2 && codeJumping)
             {
                 // find first element in bin
                 for (int s = 0; s < dataSet->getNumberOfSamples(); s++)
@@ -429,30 +430,33 @@ bool PCVizWidget::eventFilter(QObject *obj, QEvent *event)
             }
             else
             {
-                // switch to strongest correlated source file
-                int mat[numHistBins * numHistBins];
-                dataCorrelationMatrix(1, axesDataIndex[axisMouseOver], mat);
-                int strongestBin = strongestIncomingCor(mat, binMouseOver);
-                int correlatedFileUID = (strongestBin + 1) * allDimMaxes[1] / numHistBins;
-                emit selectSourceFileByIndex(correlatedFileUID);
-
-                // colored code highlighting
-                mat[numHistBins * numHistBins];
-                dataCorrelationMatrix(axesDataIndex[axisMouseOver], 2, mat);
-                int *lineCorrelations = &mat[numHistBins * binMouseOver];
-                int max = *std::max_element(lineCorrelations, lineCorrelations + numHistBins);
-
-                vector<tuple<int, float>> highlightVector;
-                for (int i = 0; i < numHistBins; i++)
+                if (codeJumping)
                 {
-                    if (lineCorrelations[i] != 0)
-                    {
-                        // TODO add element to highlight vector
-                        highlightVector.push_back(make_tuple(sourceLineOfBin(i), (float)lineCorrelations[i] / (float)max));
-                    }
-                }
+                    // switch to strongest correlated source file
+                    int mat[numHistBins * numHistBins];
+                    dataCorrelationMatrix(1, axesDataIndex[axisMouseOver], mat);
+                    int strongestBin = strongestIncomingCor(mat, binMouseOver);
+                    int correlatedFileUID = (strongestBin + 1) * allDimMaxes[1] / numHistBins;
+                    emit selectSourceFileByIndex(correlatedFileUID);
 
-                emit highlightLines(highlightVector);
+                    // colored code highlighting
+                    mat[numHistBins * numHistBins];
+                    dataCorrelationMatrix(axesDataIndex[axisMouseOver], 2, mat);
+                    int *lineCorrelations = &mat[numHistBins * binMouseOver];
+                    int max = *std::max_element(lineCorrelations, lineCorrelations + numHistBins);
+
+                    vector<tuple<int, float>> highlightVector;
+                    for (int i = 0; i < numHistBins; i++)
+                    {
+                        if (lineCorrelations[i] != 0)
+                        {
+                            // TODO add element to highlight vector
+                            highlightVector.push_back(make_tuple(sourceLineOfBin(i), (float)lineCorrelations[i] / (float)max));
+                        }
+                    }
+
+                    emit highlightLines(highlightVector);
+                }
             }
             // instruction tooltip
             if (axesDataIndex[axisMouseOver] == 3)
@@ -1446,9 +1450,10 @@ void PCVizWidget::setFilterLine(int filter)
     needsRepaint = true;
 }
 
-void PCVizWidget::setNumHistBins(int n){
+void PCVizWidget::setNumHistBins(int n)
+{
     numHistBins = n;
-    
+
     for (int i = 0; i < numDimensions; i++)
     {
         histVals[i].resize(numHistBins);
@@ -1459,4 +1464,9 @@ void PCVizWidget::setNumHistBins(int n){
     needsCalcHistBins = true;
     needsRecalcLines = true;
     needsRepaint = true;
+}
+
+void PCVizWidget::toggleCodeJumping()
+{
+    codeJumping = !codeJumping;
 }

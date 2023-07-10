@@ -114,6 +114,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
     codeViz = new CodeViz(this);
     ui->codeVizLayout->addWidget(codeViz);
+    connect(ui->jumpingCheckbox, SIGNAL(clicked()), codeViz, SLOT(toggleCodeJumping()));
 
     //connect(codeViz, SIGNAL(sourceFileSelected(QFile*)), this, SLOT(setCodeLabel(QString)));
 
@@ -177,6 +178,7 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(parallelCoordinatesViz, SIGNAL(selectSourceFileByIndex(int)), codeViz, SLOT(selectFileByIndex(int)));
     connect(parallelCoordinatesViz, SIGNAL(highlightLines(vector<tuple<int, float>>)), codeEditor, SLOT(highlightLines(vector<tuple<int, float>>)));
     connect(ui->numHistBinsSlider, SIGNAL(valueChanged(int)), parallelCoordinatesViz, SLOT(setNumHistBins(int)));
+    connect(ui->jumpingCheckbox, SIGNAL(clicked()), parallelCoordinatesViz, SLOT(toggleCodeJumping()));
 
     vizWidgets.push_back(parallelCoordinatesViz);
     pcViz = parallelCoordinatesViz;
@@ -204,16 +206,10 @@ MainWindow::MainWindow(QWidget *parent) :
         connect(this, SIGNAL(visibilityChangedSig()), vizWidgets[i], SLOT(visibilityChangedSlot()));
     }
 
-    vector<QPushButton*> recommendationButtons;
-    recommendationButtons.push_back(ui->rec1);
-    recommendationButtons.push_back(ui->rec2);
-    recommendationButtons.push_back(ui->rec3);
-    actionManager = new ActionManager(dataSet, recommendationButtons, pcViz);
+    actionManager = new ActionManager(dataSet, pcViz, ui->searchbar);
     vizWidgets.push_back(actionManager);
-
-    connect(ui->rec1, SIGNAL(clicked(bool)), actionManager, SLOT(firstButton()));
-    connect(ui->rec2, SIGNAL(clicked(bool)), actionManager, SLOT(secondButton()));
-    connect(ui->rec3, SIGNAL(clicked(bool)), actionManager, SLOT(thirdButton()));
+    connect(ui->searchbar, SIGNAL(returnPressed()), actionManager, SLOT(returnPressed()));
+    connect(ui->searchbar, SIGNAL(textEdited(QString)), actionManager, SLOT(textEdited(QString)));
 
     frameTimer = new QTimer(this);
     frameTimer->setInterval(1000/60); // 60fps
