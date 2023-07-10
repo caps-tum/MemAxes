@@ -136,6 +136,7 @@ MainWindow::MainWindow(QWidget *parent) :
     codeEditor = new CodeEditor(this);
     codeEditor->setFont(QFont("Consolas"));
     codeEditor->setReadOnly(true);
+    codeEditor->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::MinimumExpanding);
     ui->codeEditorLayout->addWidget(codeEditor);
 
     connect(codeViz, SIGNAL(sourceFileSelected(QFile*)), this, SLOT(setCodeLabel(QFile*)));
@@ -175,6 +176,7 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(parallelCoordinatesViz, SIGNAL(lineSelected(int)), codeEditor, SLOT(setLine(int)));
     connect(parallelCoordinatesViz, SIGNAL(selectSourceFileByIndex(int)), codeViz, SLOT(selectFileByIndex(int)));
     connect(parallelCoordinatesViz, SIGNAL(highlightLines(vector<tuple<int, float>>)), codeEditor, SLOT(highlightLines(vector<tuple<int, float>>)));
+    connect(ui->numHistBinsSlider, SIGNAL(valueChanged(int)), parallelCoordinatesViz, SLOT(setNumHistBins(int)));
 
     vizWidgets.push_back(parallelCoordinatesViz);
     pcViz = parallelCoordinatesViz;

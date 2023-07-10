@@ -86,7 +86,6 @@ PCVizWidget::PCVizWidget(QWidget *parent)
 
     numHistBins = 50;
     showHistograms = true;
-    
 
     cursorPos.setX(-1);
     selectionAxis = -1;
@@ -139,17 +138,17 @@ void PCVizWidget::processData()
     // numDimensions = dataSet->numDimensions;
     numDimensions = NUM_SAMPLE_AXES;
 
-    histValMatrix = (float*)malloc(numHistBins * dataSet->getNumberOfAttributes() * sizeof(float));
+    histValMatrix = (float *)malloc(numHistBins * dataSet->getNumberOfAttributes() * sizeof(float));
     binMatrix = (int *)malloc(dataSet->getNumberOfAttributes() * dataSet->getNumberOfSamples() * sizeof(int));
 
     allDimMaxes = (long long *)malloc(dataSet->getNumberOfAttributes() * sizeof(long long));
     allDimMins = (long long *)malloc(dataSet->getNumberOfAttributes() * sizeof(long long));
 
-    //dimMins.resize(numDimensions);
-    //dimMaxes.resize(numDimensions);
+    // dimMins.resize(numDimensions);
+    // dimMaxes.resize(numDimensions);
 
-    //dimMins.fill(std::numeric_limits<double>::max());
-    //dimMaxes.fill(std::numeric_limits<double>::min());
+    // dimMins.fill(std::numeric_limits<double>::max());
+    // dimMaxes.fill(std::numeric_limits<double>::min());
 
     selMins.resize(numDimensions);
     selMaxes.resize(numDimensions);
@@ -229,8 +228,8 @@ int PCVizWidget::removeAxis(int index)
     axesPositions.removeAt(indexOfAxis);
     histVals.removeAt(indexOfAxis);
     histMaxVals.removeAt(indexOfAxis);
-    //dimMins.removeAt(indexOfAxis);
-    //dimMaxes.removeAt(indexOfAxis);
+    // dimMins.removeAt(indexOfAxis);
+    // dimMaxes.removeAt(indexOfAxis);
     selMins.removeAt(indexOfAxis);
     selMaxes.removeAt(indexOfAxis);
 
@@ -261,8 +260,8 @@ int PCVizWidget::addAxis(int index)
     histVals[histVals.length() - 1].resize(numHistBins);
     histVals[histVals.length() - 1].fill(0);
 
-    //dimMins.push_back(std::numeric_limits<double>::max());
-    //dimMaxes.push_back(std::numeric_limits<double>::min());
+    // dimMins.push_back(std::numeric_limits<double>::max());
+    // dimMaxes.push_back(std::numeric_limits<double>::min());
 
     histMaxVals.push_back(0);
 
@@ -273,7 +272,6 @@ int PCVizWidget::addAxis(int index)
 
     needsRecalcLines = true;
     needsCalcHistBins = true;
-
 
     orderByPosition();
     distributeAxes();
@@ -355,9 +353,12 @@ float PCVizWidget::yToSelection(float y)
     return 1.0 - scale(y, plotBBox.top(), plotBBox.bottom(), 0, 1);
 }
 
-int PCVizWidget::sourceLineOfBin(int bin){
-    for(int s = 0; s < dataSet->getNumberOfSamples(); s++){
-        if(binMatrix[2 * dataSet->getNumberOfSamples() + s] == bin)return dataSet->GetSampleAttribByIndex(s, 2);
+int PCVizWidget::sourceLineOfBin(int bin)
+{
+    for (int s = 0; s < dataSet->getNumberOfSamples(); s++)
+    {
+        if (binMatrix[2 * dataSet->getNumberOfSamples() + s] == bin)
+            return dataSet->GetSampleAttribByIndex(s, 2);
     }
 
     return bin * allDimMaxes[2] / numHistBins;
@@ -412,46 +413,58 @@ bool PCVizWidget::eventFilter(QObject *obj, QEvent *event)
                 {
                     if (binMatrix[2 * dataSet->getNumberOfSamples() + s] == binMouseOver)
                     {
-                        //find source uid of strongest correlated source file
+                        // find source uid of strongest correlated source file
                         int mat[numHistBins * numHistBins];
                         dataCorrelationMatrix(1, 2, mat);
                         int strongestBin = strongestIncomingCor(mat, binMouseOver);
                         int correlatedFileUID = (strongestBin + 1) * allDimMaxes[1] / numHistBins;
 
                         emit selectSourceFileByIndex(correlatedFileUID);
-                        //std::cerr << "emitted select source file by index signal\n";
+                        // std::cerr << "emitted select source file by index signal\n";
                         emit lineSelected(dataSet->GetSampleAttribByIndex(s, 2));
                         // std::cerr << "emitting select signal " << (dataSet->GetSampleAttribByIndex(s, 2)) << std::endl;
                         break;
                     }
-
                 }
-            }else{
-                //colored code highlighting
+            }
+            else
+            {
+                // switch to strongest correlated source file
                 int mat[numHistBins * numHistBins];
+                dataCorrelationMatrix(1, axesDataIndex[axisMouseOver], mat);
+                int strongestBin = strongestIncomingCor(mat, binMouseOver);
+                int correlatedFileUID = (strongestBin + 1) * allDimMaxes[1] / numHistBins;
+                emit selectSourceFileByIndex(correlatedFileUID);
+
+                // colored code highlighting
+                mat[numHistBins * numHistBins];
                 dataCorrelationMatrix(axesDataIndex[axisMouseOver], 2, mat);
-                int* lineCorrelations = &mat[numHistBins * binMouseOver];
+                int *lineCorrelations = &mat[numHistBins * binMouseOver];
                 int max = *std::max_element(lineCorrelations, lineCorrelations + numHistBins);
 
                 vector<tuple<int, float>> highlightVector;
-                for(int i = 0; i < numHistBins; i++){
-                    if(lineCorrelations[i] != 0){
-                        //TODO add element to highlight vector
+                for (int i = 0; i < numHistBins; i++)
+                {
+                    if (lineCorrelations[i] != 0)
+                    {
+                        // TODO add element to highlight vector
                         highlightVector.push_back(make_tuple(sourceLineOfBin(i), (float)lineCorrelations[i] / (float)max));
                     }
                 }
 
                 emit highlightLines(highlightVector);
             }
-            //instruction tooltip
-            if(axesDataIndex[axisMouseOver] == 3){
+            // instruction tooltip
+            if (axesDataIndex[axisMouseOver] == 3)
+            {
                 int instructionUID = scale(binMouseOver, 0, numHistBins - 1, allDimMins[3], allDimMaxes[3]);
-                QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
+                QMouseEvent *mouseEvent = static_cast<QMouseEvent *>(event);
                 QToolTip::showText(mouseEvent->globalPos(), dataSet->getInstruction(instructionUID), this, rect());
-            }else{
+            }
+            else
+            {
                 QToolTip::hideText();
             }
-
         }
         else
         {
@@ -510,15 +523,16 @@ int PCVizWidget::getClosestAxis(int xval)
     return closestAxis;
 }
 
-void PCVizWidget::selectValRange(int dataIndex, float rangeMin, float rangeMax){
+void PCVizWidget::selectValRange(int dataIndex, float rangeMin, float rangeMax)
+{
     selMins[axesDataIndex.indexOf(dataIndex)] = scale(rangeMin, allDimMins[dataIndex], allDimMaxes[dataIndex], 0, 1);
     selMaxes[axesDataIndex.indexOf(dataIndex)] = scale(rangeMax, allDimMins[dataIndex], allDimMaxes[dataIndex], 0, 1);
 
     needsProcessSelection = true;
 }
 
-
-void PCVizWidget::selectValRelativeRange(int dataIndex, float rangeMin, float rangeMax){
+void PCVizWidget::selectValRelativeRange(int dataIndex, float rangeMin, float rangeMax)
+{
     selMins[axesDataIndex.indexOf(dataIndex)] = rangeMin;
     selMaxes[axesDataIndex.indexOf(dataIndex)] = rangeMax;
 
@@ -585,8 +599,8 @@ void PCVizWidget::calcMinMaxes()
     if (!processed)
         return;
 
-    //dimMins.fill(std::numeric_limits<double>::max());
-    //dimMaxes.fill(std::numeric_limits<double>::min());
+    // dimMins.fill(std::numeric_limits<double>::max());
+    // dimMaxes.fill(std::numeric_limits<double>::min());
 
     std::fill_n(allDimMins, dataSet->getNumberOfAttributes(), std::numeric_limits<long long>::max());
     std::fill_n(allDimMaxes, dataSet->getNumberOfAttributes(), std::numeric_limits<long long>::min());
@@ -620,13 +634,10 @@ void PCVizWidget::calcMinMaxes()
             if (histBin < 0)
                 histBin = 0;
 
-
             binMatrix[dataSet->getNumberOfSamples() * i + s] = histBin;
-            //histMaxVals[i] = std::max(histMaxVals[i], histVals[i][histBin]);
+            // histMaxVals[i] = std::max(histMaxVals[i], histVals[i][histBin]);
         }
     }
-
-
 }
 
 bool PCVizWidget::axisInteresting(int axis)
@@ -662,8 +673,10 @@ void PCVizWidget::calcHistBins()
 
     histMaxVals.fill(0);
 
-    for(int i = 0; i < dataSet->getNumberOfAttributes() * dataSet->getNumberOfSamples(); i++){
-        if(binMatrix[i] < 0) std::cerr << "this is very bad" << i << "\n";
+    for (int i = 0; i < dataSet->getNumberOfAttributes() * dataSet->getNumberOfSamples(); i++)
+    {
+        if (binMatrix[i] < 0)
+            std::cerr << "this is very bad" << i << "\n";
     }
 
     for (int s = 0; s < dataSet->getNumberOfSamples(); s++)
@@ -674,7 +687,8 @@ void PCVizWidget::calcHistBins()
         for (int i = 0; i < numDimensions; i++)
         {
             histVals[i][binMatrix[axesDataIndex[i] * dataSet->getNumberOfSamples() + s]]++;
-            if(histVals[i][binMatrix[axesDataIndex[i] * dataSet->getNumberOfSamples() + s]] > histMaxVals[i])histMaxVals[i]++;
+            if (histVals[i][binMatrix[axesDataIndex[i] * dataSet->getNumberOfSamples() + s]] > histMaxVals[i])
+                histMaxVals[i]++;
         }
     }
 
@@ -733,31 +747,39 @@ bool orderByFirst(tuple<float, float, float> a, tuple<float, float, float> b)
     return (get<0>(a) < get<0>(b));
 }
 
-void PCVizWidget::dataCorrelationMatrix(int dataIndex1, int dataIndex2, int* mat){
+void PCVizWidget::dataCorrelationMatrix(int dataIndex1, int dataIndex2, int *mat)
+{
     std::fill(mat, mat + numHistBins * numHistBins, 0);
 
-    int* bins1Start = &binMatrix[dataIndex1 * dataSet->getNumberOfSamples()];
-    int* bins2Start = &binMatrix[dataIndex2 * dataSet->getNumberOfSamples()];
+    int *bins1Start = &binMatrix[dataIndex1 * dataSet->getNumberOfSamples()];
+    int *bins2Start = &binMatrix[dataIndex2 * dataSet->getNumberOfSamples()];
 
-    for(int s = 0; s < dataSet->getNumberOfSamples(); s++){
+    for (int s = 0; s < dataSet->getNumberOfSamples(); s++)
+    {
         mat[bins1Start[s] * numHistBins + bins2Start[s]]++;
     }
 }
 
-int PCVizWidget::strongestOutgoingCor(int* mat, int outgoingBin){
+int PCVizWidget::strongestOutgoingCor(int *mat, int outgoingBin)
+{
     int max = 0;
     int strongestLine = -1;
-    for(int j = 0; j < numHistBins; j++){
-        if(mat[numHistBins * outgoingBin + j] > max) strongestLine = j;
+    for (int j = 0; j < numHistBins; j++)
+    {
+        if (mat[numHistBins * outgoingBin + j] > max)
+            strongestLine = j;
     }
     return strongestLine;
 }
 
-int PCVizWidget::strongestIncomingCor(int* mat, int incomingBin){
+int PCVizWidget::strongestIncomingCor(int *mat, int incomingBin)
+{
     int max = 0;
     int strongestColumn = -1;
-    for(int i = 0; i < numHistBins; i++){
-        if(mat[numHistBins * i + incomingBin] > max) strongestColumn = i;
+    for (int i = 0; i < numHistBins; i++)
+    {
+        if (mat[numHistBins * i + incomingBin] > max)
+            strongestColumn = i;
     }
     return strongestColumn;
 }
@@ -1096,7 +1118,7 @@ void PCVizWidget::frameUpdate()
     if (needsRepaint)
     {
         needsRepaint = false;
-        repaint();        
+        repaint();
     }
 }
 
@@ -1420,6 +1442,21 @@ void PCVizWidget::setFilterLine(int filter)
 {
     filterLine = filter;
     // std::cerr << "filtering by: "<< filter << std::endl;
+    needsRecalcLines = true;
+    needsRepaint = true;
+}
+
+void PCVizWidget::setNumHistBins(int n){
+    numHistBins = n;
+    
+    for (int i = 0; i < numDimensions; i++)
+    {
+        histVals[i].resize(numHistBins);
+        histVals[i].fill(0);
+    }
+
+    needsCalcMinMaxes = true;
+    needsCalcHistBins = true;
     needsRecalcLines = true;
     needsRepaint = true;
 }

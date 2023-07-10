@@ -77,6 +77,8 @@ public slots:
     void selectionChangedSlot();
     void visibilityChangedSlot();
 
+    void setNumHistBins(int n);
+
     void showContextMenu(const QPoint &);
     void setSelOpacity(int val);
     void setUnselOpacity(int val);

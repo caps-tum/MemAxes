@@ -40,6 +40,7 @@
 #include <QPainter>
 #include <QTextBlock>
 #include <QTextStream>
+#include <QSizePolicy>
 
 #include "codeeditor.h"
 
@@ -55,6 +56,7 @@ CodeEditor::CodeEditor(QWidget *parent) : QPlainTextEdit(parent)
 
     updateLineNumberAreaWidth(0);
     highlightCurrentLine();
+
 }
 
 int CodeEditor::lineNumberAreaWidth()
@@ -162,6 +164,13 @@ void CodeEditor::highlightLines(vector<tuple<int, float>> lines)
         selection.cursor.clearSelection();
         extraSelections.append(selection);
     }
+
+    //move to position
+    const QTextBlock &block = this->document()->findBlockByNumber(maxLine);
+    QTextCursor cursor(block);
+    cursor.movePosition(QTextCursor::Right, QTextCursor::MoveAnchor, 0);
+    this->setTextCursor(cursor);
+    this->centerCursor();
 
     setExtraSelections(extraSelections);
 }

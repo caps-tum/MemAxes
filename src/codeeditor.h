@@ -62,6 +62,9 @@ public:
 
     void lineNumberAreaPaintEvent(QPaintEvent *event);
     int lineNumberAreaWidth();
+    QSize sizeHint() const {
+        return QSize(800, 200);
+    }
 
 signals:
     void lineSelected(int line);
