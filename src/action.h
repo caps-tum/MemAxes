@@ -9,7 +9,6 @@
 class VizAction{
     public:
         virtual bool applicable(){return false;}
-        virtual float heuristic(){return 0;}
         virtual void perform(){}
         virtual string title(){return "this should never show up";};
     protected:
@@ -29,7 +28,6 @@ class CorrelateDatasourceInstructionLine: public VizAction{
         CorrelateDatasourceInstructionLine(PCVizWidget* pcVizIn, DataObject* dataSetIn);
         string title() override {return "Correlate Code Lines with Data Sources";};
         bool applicable() override;
-        float heuristic() override;
         void perform() override;
 };
 
@@ -38,7 +36,6 @@ class CorrelateIBSL2TLBMissInstructionLine: public VizAction{
         CorrelateIBSL2TLBMissInstructionLine(PCVizWidget* pcVizIn, DataObject* dataSetIn);
         string title() override {return "Correlate Code Lines with IBS L2 TLB data";};
         bool applicable() override;
-        float heuristic() override;
         void perform() override;
     private:
         int l2tlbmissIndex;
@@ -49,7 +46,6 @@ class CorrelateIBSL1TLBMissInstructionLine: public VizAction{
         CorrelateIBSL1TLBMissInstructionLine(PCVizWidget* pcVizIn, DataObject* dataSetIn);
         string title() override {return "Correlate Code Lines with IBS L1 TLB data";};
         bool applicable() override;
-        float heuristic() override;
         void perform() override;
     private:
         int l1tlbmissIndex;
@@ -60,7 +56,6 @@ class CorrelateL1DCMissInstructionLine: public VizAction{
         CorrelateL1DCMissInstructionLine(PCVizWidget* pcVizIn, DataObject* dataSetIn);
         string title() override {return "Correlate Code Lines with L1 Data Cache Misses";};
         bool applicable() override;
-        float heuristic() override;
         void perform() override;
 };
 
@@ -74,17 +69,20 @@ class ActionManager : public VizWidget{
         void returnPressed();
         void textEdited(QString text);
 
+        void textChanged(QString text);
+
     private:
         void sortActions();
 
-
-        
+        VizAction *findActionByTitle(string title);
 
     private:
         vector<VizAction*> actions;
         DataObject* dataSet;
         PCVizWidget* pcViz;
         QLineEdit* searchbar;
+        QString inputText;
+        QString userInputText;
 };
 
 #endif

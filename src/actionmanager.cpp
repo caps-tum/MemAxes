@@ -1,37 +1,48 @@
 #include "action.h"
 
-bool orderByHeuristic(VizAction* a, VizAction* b){
-    return a->heuristic() > b->heuristic();
-}
-
 ActionManager::ActionManager(DataObject *dataSetIn, PCVizWidget *pcViz, QLineEdit *searchbarNew)
 {
     dataSet = dataSetIn;
     this->pcViz = pcViz;
     this->searchbar = searchbarNew;
     searchbar->setPlaceholderText("type in action command");
+    inputText = "";
+    userInputText = "";
     
 }
 
 
 void ActionManager::sortActions(){
-    std::sort(actions.begin(), actions.end(), orderByHeuristic);
-    
+
+
+}
+
+VizAction* ActionManager::findActionByTitle(string title){
+    for(VizAction* action : actions){
+        if(action->title() == title)return action;
+    }
+    return nullptr;
 }
 
 void ActionManager::textEdited(QString text){
     //connection text code
-    //std::cerr << text.toStdString() << std::endl;
+    //std::cerr << "textedit: " << text.toStdString() << std::endl;
+    userInputText = text;
 
 
 }
 
-void ActionManager::returnPressed(){
-    //connection test code
-    //std::cerr << "action manager received return pressed signal\n";
-    searchbar->clear();
-    
+void ActionManager::textChanged(QString text){
+    //std::cerr << "text change: " << text.toStdString() << std::endl;
+    inputText = text;
+}
 
+void ActionManager::returnPressed(){
+    VizAction * action = findActionByTitle(inputText.toStdString());
+    if(action != nullptr){
+        action->perform();
+    }
+    searchbar->clear();
 }
 
 
@@ -54,9 +65,12 @@ void ActionManager::loadDataset(DataObject* dataSetIn){
     sortActions();
 
     QStringList wordlist;
-    wordlist << "test 1" << "test 2";
+    for(VizAction* action : actions){
+        wordlist.push_back(QString::fromStdString(action->title()));
+    }
     QCompleter* completer = new QCompleter(wordlist, this);
-    completer->setCompletionMode(QCompleter::PopupCompletion);
+    completer->setCompletionMode(QCompleter::UnfilteredPopupCompletion);
+    completer->setCaseSensitivity(Qt::CaseInsensitive);
 
     searchbar->setCompleter(completer);
 }

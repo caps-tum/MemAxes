@@ -210,6 +210,8 @@ MainWindow::MainWindow(QWidget *parent) :
     vizWidgets.push_back(actionManager);
     connect(ui->searchbar, SIGNAL(returnPressed()), actionManager, SLOT(returnPressed()));
     connect(ui->searchbar, SIGNAL(textEdited(QString)), actionManager, SLOT(textEdited(QString)));
+    connect(ui->searchbar, SIGNAL(textChanged(QString)), actionManager, SLOT(textChanged(QString)));
+
 
     frameTimer = new QTimer(this);
     frameTimer->setInterval(1000/60); // 60fps
