@@ -65,6 +65,8 @@ public:
     int removeAxis(int index);
     int addAxis(int index);
     int correlateAxes(int dataIndex1, int dataIndex2);
+    float dataMax(int dataIndex);
+    float dataMin(int dataIndex);
 
 
 signals:

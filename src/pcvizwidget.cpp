@@ -51,6 +51,11 @@
 #define SKIP_GL false
 #define TIME_LOGGING false
 
+
+#define MAXIMUM_LINE_THICKNESS .02
+#define MINIMUM_LINE_THICKNESS .005
+
+
 using namespace std::chrono;
 
 PCVizWidget::PCVizWidget(QWidget *parent)
@@ -976,12 +981,32 @@ void PCVizWidget::recalcLines(int dirtyAxis)
 
         for (tuple<float, float, float> line : lines)
         {
+            float progress = std::get<0>(line);
+
+            float thickness = progress * (MAXIMUM_LINE_THICKNESS - MINIMUM_LINE_THICKNESS) + MINIMUM_LINE_THICKNESS;
+            
+
+            //first triangle
             verts.push_back(axisPos);
-            verts.push_back(std::get<1>(line));
+            verts.push_back(std::get<1>(line) - thickness / 2);
 
             verts.push_back(nextAxisPos);
-            verts.push_back(std::get<2>(line));
-            float progress = std::get<0>(line);
+            verts.push_back(std::get<2>(line) - thickness / 2);
+
+            verts.push_back(nextAxisPos);
+            verts.push_back(std::get<2>(line) + thickness / 2);
+
+            //second triangle
+            verts.push_back(axisPos);
+            verts.push_back(std::get<1>(line) + thickness / 2);
+
+            verts.push_back(axisPos);
+            verts.push_back(std::get<1>(line) - thickness / 2);
+
+            verts.push_back(nextAxisPos);
+            verts.push_back(std::get<2>(line) + thickness / 2);
+
+            
 
             int h = 64.f * progress + 128.f;
             int s = 255;
@@ -995,6 +1020,26 @@ void PCVizWidget::recalcLines(int dirtyAxis)
             lineCol.setHsl(h, s, l);
 
             // if(axis = axisMouseOver)std::cerr << "r: " << lineCol.red() << std::endl;
+
+            colors.push_back((float)lineCol.red() / 255);
+            colors.push_back((float)lineCol.green() / 255);
+            colors.push_back((float)lineCol.blue() / 255);
+            colors.push_back(1);
+
+            colors.push_back((float)lineCol.red() / 255);
+            colors.push_back((float)lineCol.green() / 255);
+            colors.push_back((float)lineCol.blue() / 255);
+            colors.push_back(1);
+
+            colors.push_back((float)lineCol.red() / 255);
+            colors.push_back((float)lineCol.green() / 255);
+            colors.push_back((float)lineCol.blue() / 255);
+            colors.push_back(1);
+
+             colors.push_back((float)lineCol.red() / 255);
+            colors.push_back((float)lineCol.green() / 255);
+            colors.push_back((float)lineCol.blue() / 255);
+            colors.push_back(1);
 
             colors.push_back((float)lineCol.red() / 255);
             colors.push_back((float)lineCol.green() / 255);
@@ -1226,7 +1271,7 @@ void PCVizWidget::paintGL()
     glColorPointer(FLOATS_PER_COLOR, GL_FLOAT, 0, colors.constData());
 
     if (!SKIP_GL)
-        glDrawArrays(GL_LINES, 0, verts.size() / POINTS_PER_LINE);
+        glDrawArrays(GL_TRIANGLES, 0, verts.size() / 2);
 
     glDisableClientState(GL_VERTEX_ARRAY);
     glDisableClientState(GL_COLOR_ARRAY);
@@ -1469,4 +1514,12 @@ void PCVizWidget::setNumHistBins(int n)
 void PCVizWidget::toggleCodeJumping()
 {
     codeJumping = !codeJumping;
+}
+
+float PCVizWidget::dataMax(int index){
+    return allDimMaxes[index];
+}
+
+float PCVizWidget::dataMin(int index){
+    return allDimMins[index];
 }
