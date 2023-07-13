@@ -51,10 +51,8 @@
 #define SKIP_GL false
 #define TIME_LOGGING false
 
-
-#define MAXIMUM_LINE_THICKNESS .02
+#define MAXIMUM_LINE_THICKNESS .05
 #define MINIMUM_LINE_THICKNESS .005
-
 
 using namespace std::chrono;
 
@@ -109,6 +107,8 @@ PCVizWidget::PCVizWidget(QWidget *parent)
 
     highlightRect = QRect(0, 0, 0, 0);
     highlightLifetime = 0;
+
+    hardwareTopoSamples = nullptr;
 
     // Event Filters
     this->installEventFilter(this);
@@ -751,7 +751,7 @@ void matrixSpeedTest(long long *matrix, long numElements)
     }
 }
 
-bool orderByFirst(tuple<float, float, float> a, tuple<float, float, float> b)
+bool orderByFirst(tuple<float, float, float, int> a, tuple<float, float, float, int> b)
 {
     return (get<0>(a) < get<0>(b));
 }
@@ -854,15 +854,25 @@ void PCVizWidget::recalcLines(int dirtyAxis)
         std::fill(correlation, correlation + numHistBins * numHistBins, 0);
 
         // std::cerr << "number of samples to iterate "<<(dataSet->getNumberOfSamples()) << std::endl;
-
-        for (int s = 0; s < dataSet->getNumberOfSamples(); s++)
+        if (hardwareTopoSamples == nullptr)
         {
-            if ((binMouseOver < 0 || condAxisStart[s] == binMouseOver) && (filterLine < 0 || filterLine == dataSet->GetSampleAttribByIndex(s, 2)) && !(dataSet->selectionDefined() && !dataSet->selected(s)))
+            for (int s = 0; s < dataSet->getNumberOfSamples(); s++)
             {
-                // std::cerr << "attempting to access element " << (axisStart[s] * numHistBins + axisStart[s]) << std::endl;
-                correlation[axisStart[s] * numHistBins + nextAxisStart[s]]++;
+                if ((binMouseOver < 0 || condAxisStart[s] == binMouseOver) && (filterLine < 0 || filterLine == dataSet->GetSampleAttribByIndex(s, 2)) && !(dataSet->selectionDefined() && !dataSet->selected(s)))
+                {
+                    // std::cerr << "attempting to access element " << (axisStart[s] * numHistBins + axisStart[s]) << std::endl;
+                    correlation[axisStart[s] * numHistBins + nextAxisStart[s]]++;
+                }
+                // if(axis == 14)std::cerr << "value at 0 to 0: " << correlation[0] << " visibility : " << dataSet->selected(s) << "\n";
             }
-            // if(axis == 14)std::cerr << "value at 0 to 0: " << correlation[0] << " visibility : " << dataSet->selected(s) << "\n";
+        }else{
+            for(int s : *hardwareTopoSamples){
+                if ((binMouseOver < 0 || condAxisStart[s] == binMouseOver) && (filterLine < 0 || filterLine == dataSet->GetSampleAttribByIndex(s, 2)) && !(dataSet->selectionDefined() && !dataSet->selected(s)))
+                {
+                    // std::cerr << "attempting to access element " << (axisStart[s] * numHistBins + axisStart[s]) << std::endl;
+                    correlation[axisStart[s] * numHistBins + nextAxisStart[s]]++;
+                }
+            }
         }
 
         // calculation of transformation parameters
@@ -952,8 +962,8 @@ void PCVizWidget::recalcLines(int dirtyAxis)
             break;
         }
 
-        // line tuple: progress y1, y2
-        vector<tuple<float, float, float>> lines;
+        // line tuple: progress, y1, y2, total strength
+        vector<tuple<float, float, float, int>> lines;
 
         for (int out = 0; out < numHistBins; out++)
         {
@@ -972,41 +982,53 @@ void PCVizWidget::recalcLines(int dirtyAxis)
                     if (axis == 14)
                         std::cerr << "bottom: " << scaleBottom[out * numHistBins + into] << " top: " << scaleTop[out * numHistBins + into] << " correlation strength: " << correlation[out * numHistBins + into] << " progress: " << progress << std::endl;
                     */
-                    lines.push_back(make_tuple(progress, aVal, bVal));
+                    lines.push_back(make_tuple(progress, aVal, bVal, correlation[out * numHistBins + into]));
                 }
             }
         }
 
         std::sort(lines.begin(), lines.end(), orderByFirst);
 
-        for (tuple<float, float, float> line : lines)
+        for (tuple<float, float, float, int> line : lines)
         {
             float progress = std::get<0>(line);
 
-            float thickness = progress * (MAXIMUM_LINE_THICKNESS - MINIMUM_LINE_THICKNESS) + MINIMUM_LINE_THICKNESS;
-            
+            float thickness = ((((float)std::get<3>(line) / (float)dataSet->getNumberOfSamples())) * (MAXIMUM_LINE_THICKNESS - MINIMUM_LINE_THICKNESS) + MINIMUM_LINE_THICKNESS) * glViewPortHeight / 2;
 
-            //first triangle
-            verts.push_back(axisPos);
-            verts.push_back(std::get<1>(line) - thickness / 2);
+            float firstPos = axisPos * glViewportWidth;
+            float secondPos = nextAxisPos * glViewportWidth;
 
-            verts.push_back(nextAxisPos);
-            verts.push_back(std::get<2>(line) - thickness / 2);
+            float firstHeight = std::get<1>(line) * glViewPortHeight;
+            float secondHeight = std::get<2>(line) * glViewPortHeight;
 
-            verts.push_back(nextAxisPos);
-            verts.push_back(std::get<2>(line) + thickness / 2);
+            float xDist = secondPos - firstPos;
+            float yDist = std::abs(firstHeight - secondHeight);
 
-            //second triangle
-            verts.push_back(axisPos);
-            verts.push_back(std::get<1>(line) + thickness / 2);
+            float hypothenuseSquared = xDist * xDist + yDist * yDist;
+            float hypothenuse = std::sqrt(hypothenuseSquared);
+            float inverseSin = hypothenuse / xDist;
 
-            verts.push_back(axisPos);
-            verts.push_back(std::get<1>(line) - thickness / 2);
+            float offset = thickness * inverseSin;
 
-            verts.push_back(nextAxisPos);
-            verts.push_back(std::get<2>(line) + thickness / 2);
+            // first triangle
+            verts.push_back(firstPos);
+            verts.push_back(firstHeight - offset);
 
-            
+            verts.push_back(secondPos);
+            verts.push_back(secondHeight - offset);
+
+            verts.push_back(secondPos);
+            verts.push_back(secondHeight + offset);
+
+            // second triangle
+            verts.push_back(firstPos);
+            verts.push_back(firstHeight + offset);
+
+            verts.push_back(firstPos);
+            verts.push_back(firstHeight - offset);
+
+            verts.push_back(secondPos);
+            verts.push_back(secondHeight + offset);
 
             int h = 64.f * progress + 128.f;
             int s = 255;
@@ -1036,7 +1058,7 @@ void PCVizWidget::recalcLines(int dirtyAxis)
             colors.push_back((float)lineCol.blue() / 255);
             colors.push_back(1);
 
-             colors.push_back((float)lineCol.red() / 255);
+            colors.push_back((float)lineCol.red() / 255);
             colors.push_back((float)lineCol.green() / 255);
             colors.push_back((float)lineCol.blue() / 255);
             colors.push_back(1);
@@ -1242,14 +1264,17 @@ void PCVizWidget::paintGL()
     int mx = 40;
     int my = 30;
 
+    glViewportWidth = width() - 2 * mx;
+    glViewPortHeight = height() - 2 * my;
+
     glViewport(mx,
                my,
-               width() - 2 * mx,
-               height() - 2 * my);
+               glViewportWidth,
+               glViewPortHeight);
 
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    glOrtho(0.0, 1.0, 0.0, 1.0, 0, 1);
+    glOrtho(0.0, glViewportWidth, 0.0, glViewPortHeight, 0, 1);
 
     glShadeModel(GL_FLAT);
     // keep enabled to use the alpha channel for reducing the brightness of graph links
@@ -1516,10 +1541,20 @@ void PCVizWidget::toggleCodeJumping()
     codeJumping = !codeJumping;
 }
 
-float PCVizWidget::dataMax(int index){
+float PCVizWidget::dataMax(int index)
+{
     return allDimMaxes[index];
 }
 
-float PCVizWidget::dataMin(int index){
+float PCVizWidget::dataMin(int index)
+{
     return allDimMins[index];
+}
+
+void PCVizWidget::setHardwareTopologySampleSet(vector<int> * indices)
+{
+    //std::cerr << "receiving hardware topology sample set\n";
+    hardwareTopoSamples = indices;
+    needsRecalcLines = true;
+    needsRepaint = true;
 }

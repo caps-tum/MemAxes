@@ -69,6 +69,8 @@ struct NodeBox
     Component* component;
     QRectF box;
     qreal val;
+
+    vector<int> sampleIndices;
 };
 
 struct LinkBox
@@ -111,6 +113,7 @@ protected:
     void drawQtPainter(QPainter *painter);
 
 signals:
+    void hoverHardwareTopoSamples(vector<int> * samples);
 
 public slots:
     void mousePressEvent(QMouseEvent *e);
@@ -132,9 +135,8 @@ private:
                             QVector<NodeBox> &nbout,
                             QVector<LinkBox> &lbout);
     Component* nodeAtPosition(QPoint p);
+    NodeBox *nodeBoxAtPosition(QPoint p);
     void selectSamplesWithinNode(Component *lvl);
-
-
 
 private:
 

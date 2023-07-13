@@ -123,7 +123,6 @@ void HWTopoVizWidget::selectionChangedSlot()
 {
     if(!processed)
         return;
-
     needsCalcMinMaxes = true;
 }
 
@@ -131,7 +130,6 @@ void HWTopoVizWidget::visibilityChangedSlot()
 {
     if(!processed)
         return;
-
     needsCalcMinMaxes = true;
 }
 
@@ -194,8 +192,8 @@ void HWTopoVizWidget::drawTopo(QPainter *painter, QRectF rect, ColorMap &cm, QVe
     {
         QRectF box = lb[b].box;
 
-        QColor col = valToColor(nb.at(b).val,connectionColor);
-        painter->setBrush(col);
+        //QColor col = valToColor(nb.at(b).val,connectionColor);
+        //painter->setBrush(col);
         
         
         if(vizMode == SUNBURST)
@@ -289,10 +287,14 @@ void HWTopoVizWidget::mouseMoveEvent(QMouseEvent* e)
         label += "Cycles/Access: " + QString::number((float)numCycles / (float)numSamples) + "\n";
 
         QToolTip::showText(e->globalPos(),label,this, rect() );
+
+        emit hoverHardwareTopoSamples(&(nodeBoxAtPosition(e->pos())->sampleIndices));
+
     }
     else
     {
         QToolTip::hideText();
+        emit hoverHardwareTopoSamples(nullptr);
     }
 }
 
@@ -427,7 +429,16 @@ void HWTopoVizWidget::constructNodeBoxes(QRectF rect,
                 SampleSet *ss = (SampleSet*)dp->attrib["sample_set"];
                 numSamples += ss->selSamples.size();
                 numCycles += ss->selCycles;
+
+                for(ElemIndex s : ss->totSamples){
+                    auto cIndex = std::find(nb.sampleIndices.begin(), nb.sampleIndices.end(), s);
+                    if(cIndex == nb.sampleIndices.end())nb.sampleIndices.push_back(s);
+                }
             }
+
+            std::sort(nb.sampleIndices.begin(), nb.sampleIndices.end());
+
+            //std::cerr << "generated node box with " << nb.sampleIndices.size() << " samples\n";
 
             qreal unscaledval = (m == COLORBY_CYCLES) ? numCycles : numSamples;
             nb.val = scale(unscaledval,
@@ -513,6 +524,32 @@ Component *HWTopoVizWidget::nodeAtPosition(QPoint p)
 
         if(containsP)
             return c;
+    }
+
+    return NULL;
+}
+
+NodeBox *HWTopoVizWidget::nodeBoxAtPosition(QPoint p){
+    QRectF drawBox = this->rect();
+    drawBox.adjust(margin,margin,-margin,-margin);
+
+    for(int b=0; b<nodeBoxes.size(); b++)
+    {
+        QRectF box = nodeBoxes[b].box;
+
+        bool containsP = false;
+        if(vizMode == SUNBURST)
+        {
+            QPointF radp = reverseRadialTransform(p,drawBox);
+            containsP = box.contains(radp);
+        }
+        else if(vizMode == ICICLE)
+        {
+            containsP = box.contains(p);
+        }
+
+        if(containsP)
+            return &nodeBoxes[b];
     }
 
     return NULL;

@@ -97,6 +97,8 @@ public slots:
 
     void toggleCodeJumping();
 
+    void setHardwareTopologySampleSet(vector<int>* indices);
+
 protected:
     void processData();
     void paintGL();
@@ -187,6 +189,8 @@ private:
     qreal lastSel;
 
     int filterLine;
+    float glViewportWidth;
+    float glViewPortHeight;
 
     qreal selOpacity;
     qreal unselOpacity;
@@ -200,6 +204,8 @@ private:
 
     QRect highlightRect;
     float highlightLifetime;
+
+    vector<int> * hardwareTopoSamples;
 };
 
 #endif // PARALLELCOORDINATESVIZ_H
