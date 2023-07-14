@@ -61,6 +61,7 @@ DataObject::DataObject()
 
     selMode = MODE_NEW;
     selGroup = 1;
+
 }
 
 int DataObject::loadHardwareTopology(QString filename)
@@ -633,7 +634,7 @@ int DataObject::numberOfColumns(){
 
 int DataObject::parseCSVFile(QString dataFileName)
 {
-     milliseconds msStart = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
+
     // Open the file
     QFile dataFile(dataFileName);
 
@@ -645,7 +646,6 @@ int DataObject::parseCSVFile(QString dataFileName)
     // Create text stream
     QTextStream dataStream(&dataFile);
     QString line;
-    QStringList lineValues;
     qint64 elemid = 0;
 
     // Get metadata from first line
@@ -689,18 +689,41 @@ int DataObject::parseCSVFile(QString dataFileName)
         attributeNames.push_back(header[i].toStdString());
     }
 
-    for(int i = 0; i < SampleAxes::SampleAxesNames.length(); i++){
+    for(int i = 0; i < SampleAxes::SampleAxesNames.length() && i < attributeNames.size(); i++){
         attributeNames[i] = SampleAxes::SampleAxesNames[i].toStdString();
     }
 
+    QVector<QStringList> lines;
+
     ElemIndex numHeaderDimensions = header.size();
     numAttributes = header.size();
+
+    int builtinColumns[SampleAxes::BuiltinLoads.size()];
+    for(int i = 0; i < SampleAxes::BuiltinLoads.size(); i++){
+        builtinColumns[i] = header.indexOf(SampleAxes::BuiltinLoads[i]);
+        QString last = SampleAxes::BuiltinLoads[i];
+        while(builtinColumns[i] < 0){
+            bool ok = true;
+            QString input = QInputDialog::getText(QApplication::activeWindow(), "Column unavailable", "no axis with name " + last + " specify alternative axis index or name", QLineEdit::Normal, "type here", &ok);
+            if(!ok)builtinColumns[i] = header.size() - 1;
+            else builtinColumns[i] = header.indexOf(input);
+        }
+    }
+
+    milliseconds msStart = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
+
     // Get data
     while(!dataStream.atEnd())
     {
         line = dataStream.readLine();
-        lineValues = line.split(',');
+        lines.push_back(line.split(','));
+    }
 
+    // Close and return
+    dataFile.close();
+
+    //parse data
+    for(QStringList lineValues : lines){
         if(lineValues.size() != numHeaderDimensions)
         {
             std::cerr << "ERROR: element dimensions do not match headerdata!" << std::endl;
@@ -710,29 +733,29 @@ int DataObject::parseCSVFile(QString dataFileName)
 
         Sample s;
         s.sampleId = elemid;
-        s.sourceUid = createUniqueID(sourceVec,lineValues[header.indexOf("source")]); 
-        s.source = lineValues[header.indexOf("source")]; // source file absolute path
-        s.line = lineValues[header.indexOf("line")].toLongLong(); // line in source file
-        s.instructionUid = createUniqueID(instrVec,lineValues[header.indexOf("instruction")]);
-        s.instruction = lineValues[header.indexOf("instruction")]; //instruction type
-        s.bytes = lineValues[header.indexOf("bytes")].toLongLong();
-        s.ip = lineValues[header.indexOf("ip")].toLongLong(); // instruction pointer
-        s.variableUid = createUniqueID(varVec,lineValues[header.indexOf("variable")]);
-        s.variable = lineValues[header.indexOf("variable")];
-        s.buffer_size = lineValues[header.indexOf("buffer_size")].toLongLong();
-        s.dims = lineValues[header.indexOf("dims")].toInt();
-        s.xidx = lineValues[header.indexOf("xidx")].toInt();
-        s.yidx = lineValues[header.indexOf("yidx")].toInt();
-        s.zidx = lineValues[header.indexOf("zidx")].toInt();
-        s.pid = lineValues[header.indexOf("pid")].toInt();
-        s.tid = lineValues[header.indexOf("tid")].toInt();
-        s.time = lineValues[header.indexOf("time")].toLongLong();
-        s.addr = lineValues[header.indexOf("addr")].toLongLong();
-        s.cpu = lineValues[header.indexOf("cpu")].toInt();
-        s.latency = lineValues[header.indexOf("latency")].toLongLong();
+        s.sourceUid = createUniqueID(sourceVec,lineValues[builtinColumns[0]]); 
+        s.source = lineValues[builtinColumns[0]]; // source file absolute path
+        s.line = lineValues[builtinColumns[1]].toLongLong(); // line in source file
+        s.instructionUid = createUniqueID(instrVec,lineValues[builtinColumns[2]]);
+        s.instruction = lineValues[builtinColumns[2]]; //instruction type
+        s.bytes = lineValues[builtinColumns[3]].toLongLong();
+        s.ip = lineValues[builtinColumns[4]].toLongLong(); // instruction pointer
+        s.variableUid = createUniqueID(varVec,lineValues[builtinColumns[5]]);
+        s.variable = lineValues[builtinColumns[5]];
+        s.buffer_size = lineValues[builtinColumns[6]].toLongLong();
+        s.dims = lineValues[builtinColumns[7]].toInt();
+        s.xidx = lineValues[builtinColumns[8]].toInt();
+        s.yidx = lineValues[builtinColumns[9]].toInt();
+        s.zidx = lineValues[builtinColumns[10]].toInt();
+        s.pid = lineValues[builtinColumns[11]].toInt();
+        s.tid = lineValues[builtinColumns[12]].toInt();
+        s.time = lineValues[builtinColumns[13]].toLongLong();
+        s.addr = lineValues[builtinColumns[14]].toLongLong();
+        s.cpu = lineValues[builtinColumns[15]].toInt();
+        s.latency = lineValues[builtinColumns[16]].toLongLong();
         //s.data_src = dseDepth(lineValues[header.indexOf("data_src")].toInt(NULL,10));
         
-        s.data_src = DecodeDataSource(lineValues[header.indexOf("level")]);
+        s.data_src = DecodeDataSource(lineValues[builtinColumns[17]]);
         
         //IBS data src        
         if(s.data_src == -1 && header.indexOf("ibs_dc_miss") >= 0 && header.indexOf("ibs_l2_miss") >= 0){
@@ -753,7 +776,7 @@ int DataObject::parseCSVFile(QString dataFileName)
         }
 
         //write MemAxes standard info to matrix
-        for(int i = 0; i < 19; i++){
+        for(int i = 0; i < 19 && i < header.length(); i++){
             sampleMatrix[i * numSamples + elemid] = GetSampleAttribByIndex(&s, i);
         }
 
@@ -761,12 +784,15 @@ int DataObject::parseCSVFile(QString dataFileName)
         for(int i = 19; i < header.length(); i++){
             string s = lineValues[i].toStdString();
             long long r = 0;
+            bool ok = true;
             if(s != "(null)"){
-                //TODO: find smarter way to recognize attributes with hex values than hardcoding
-                if(i == 29 || i == 70 || i == 71){
-                    //do hex conversion
+                lineValues[i].toLongLong(&ok);
+
+                if(ok){
+                    r = std::stoll(s);
+                }else{
                     r = std::stoull(s, nullptr, 16);
-                }else r = std::stoll(s);
+                }
             }
             sampleMatrix[i*numSamples + elemid] = r;
         }
@@ -872,9 +898,6 @@ int DataObject::parseCSVFile(QString dataFileName)
         // }
 
     }
-
-    // Close and return
-    dataFile.close();
 
     this->allocate();
 

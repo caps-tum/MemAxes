@@ -45,16 +45,17 @@
 
 #include <QVector>
 
-#include "vizwidget.h"
-#include "codevizwidget.h"
+
 #include "varvizwidget.h"
 #include "pcvizwidget.h"
 #include "hwtopovizwidget.h"
 #include "action.h"
+#include "codevizwidget.h"
 
 #include "hwtopo.h"
 #include "codeeditor.h"
 #include "console.h"
+#include "vizwidget.h"
 
 //#include "volumevizwidget.h"
 

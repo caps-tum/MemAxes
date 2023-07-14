@@ -143,6 +143,7 @@ void PCVizWidget::processData()
 
     // numDimensions = dataSet->numDimensions;
     numDimensions = NUM_SAMPLE_AXES;
+    numDimensions = min(numDimensions, dataSet->getNumberOfAttributes());
 
     histValMatrix = (float *)malloc(numHistBins * dataSet->getNumberOfAttributes() * sizeof(float));
     binMatrix = (int *)malloc(dataSet->getNumberOfAttributes() * dataSet->getNumberOfSamples() * sizeof(int));
@@ -408,6 +409,7 @@ bool PCVizWidget::eventFilter(QObject *obj, QEvent *event)
         if (ySel < 1 && ySel >= 0 && mousePos.x() > plotBBox.left() && mousePos.x() < plotBBox.right())
         {
             binMouseOver = ySel * numHistBins;
+            hardwareTopoSamples = nullptr;
             // uncomment to show all correlations when mouse hovers over an empty bin. Deactivated because it can be irritating
             // if(histVals[axisMouseOver][binMouseOver] == 0)binMouseOver = -1;
             needsRecalcLines = true;

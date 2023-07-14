@@ -43,10 +43,10 @@ class CorrelateIBSL2TLBMissInstructionLine : public VizAction
 {
 public:
     CorrelateIBSL2TLBMissInstructionLine(PCVizWidget *pcVizIn, DataObject *dataSetIn) : VizAction(pcVizIn, dataSetIn) {}
-    string title() override { return "Correlate Code Lines with IBS L2 TLB data"; };
+    string title() override { return "Correlate Code Lines with IBS L2 TLB information"; };
     bool applicable() override;
     void perform() override;
-    vector<string> tags() override { return {"l2", "lookaside", "translation"}; }
+    vector<string> tags() override { return {"tlb", "l2", "lookaside", "translation"}; }
 
 private:
     int l2tlbmissIndex;
@@ -56,10 +56,10 @@ class CorrelateIBSL1TLBMissInstructionLine : public VizAction
 {
 public:
     CorrelateIBSL1TLBMissInstructionLine(PCVizWidget *pcVizIn, DataObject *dataSetIn) : VizAction(pcVizIn, dataSetIn) {}
-    string title() override { return "Correlate Code Lines with IBS L1 TLB data"; };
+    string title() override { return "Correlate Code Lines with IBS L1 TLB information"; };
     bool applicable() override;
     void perform() override;
-    vector<string> tags() override { return {"tlb", "lookaside", "buffer", "l1", "tlb l1", "source line"}; }
+    vector<string> tags() override { return {"tlb", "l1", "lookaside", "translation"}; }
 
 private:
     int l1tlbmissIndex;
@@ -72,7 +72,7 @@ public:
     string title() override { return "Correlate Code Lines with L1 Data Cache Misses"; };
     bool applicable() override;
     void perform() override;
-    vector<string> tags() override { return {"cache miss", "l1", "dc miss", "select", "source line"}; }
+    vector<string> tags() override { return {"cache", "miss", "l1", "dc miss", "select", "source line"}; }
 };
 
 class CorrelateL2DCMissInstructionLine : public VizAction
@@ -82,7 +82,7 @@ public:
     string title() override { return "Correlate Code Lines with L2 Data Cache Misses"; };
     bool applicable() override;
     void perform() override;
-    vector<string> tags() override { return {"cache miss", "l2", "dc miss", "select", "source line"}; }
+    vector<string> tags() override { return {"cache", "miss", "l2", "dc miss", "select", "source line"}; }
 };
 
 class CorrelateL1DCHitInstructionLine : public VizAction
@@ -92,7 +92,7 @@ public:
     string title() override { return "Correlate Code Lines with L1 Data Cache Hits"; };
     bool applicable() override;
     void perform() override;
-    vector<string> tags() override { return {"cache miss", "l1", "dc hit", "select", "source line"}; }
+    vector<string> tags() override { return {"cache hit", "l1", "dc hit", "select", "source line"}; }
 };
 
 class CorrelateL2DCHitInstructionLine : public VizAction
@@ -102,7 +102,7 @@ public:
     string title() override { return "Correlate Code Lines with L2 Data Cache Hits"; };
     bool applicable() override;
     void perform() override;
-    vector<string> tags() override { return {"cache miss", "l2", "dc hit", "select", "source line"}; }
+    vector<string> tags() override { return {"cache hit", "l2", "dc hit", "select", "source line"}; }
 };
 
 

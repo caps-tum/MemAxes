@@ -41,6 +41,8 @@
 
 #include <QWidget>
 #include <QBitArray>
+#include <QInputDialog>
+#include <QApplication>
 
 #include <map>
 #include <set>
@@ -140,6 +142,26 @@ namespace SampleAxes
         "load latency", //17
         "data source" //18
     };
+    const QStringList BuiltinLoads = {
+        "source",       //  0
+        "line",         //  1
+        "instruction",  //  2
+        "bytes",        //  3
+        "ip",           //  4
+        "variable",     //  5
+        "buffer_size",  //  6
+        "dims",         //  7
+        "xidx",         //  8
+        "yidx",         //  9
+        "zidx",         // 10
+        "pid",          // 11
+        "tid",          // 12
+        "time",         // 13
+        "addr",         // 14
+        "cpu",          // 15
+        "latency",      // 16
+        "level"         // 17
+    };
 }
 
 
@@ -202,6 +224,7 @@ private:
     int numAttributes;
     vector<string> sourceFiles;
     vector<string> attributeNames;
+
 
 
     

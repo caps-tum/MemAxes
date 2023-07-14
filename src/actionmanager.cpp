@@ -58,16 +58,18 @@ void ActionManager::sortActions(){
             acc += std::pow(tagMatching(tag, userInput), 3);
            
         }
-        acc = acc / action->tags().size();
+        acc += tagMatching(action->title(), userInput);
         action->heuristic = acc;
         counter++;
     }
     counter = 0;
     std::sort(actions.begin(), actions.end(), orderByHeuristic);
 
+    float maxHeuristic = actions[0]->heuristic;
+
     QStringList titles;
     for(VizAction * action : actions){
-        titles.push_back(QString::fromStdString(action->title()));
+        if(action->heuristic > maxHeuristic - 1 || action->heuristic > 1)titles.push_back(QString::fromStdString(action->title()));
     }
     
     QCompleter * completer = new QCompleter(titles);
