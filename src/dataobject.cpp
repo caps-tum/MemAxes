@@ -702,11 +702,14 @@ int DataObject::parseCSVFile(QString dataFileName)
     for(int i = 0; i < SampleAxes::BuiltinLoads.size(); i++){
         builtinColumns[i] = header.indexOf(SampleAxes::BuiltinLoads[i]);
         QString last = SampleAxes::BuiltinLoads[i];
-        while(builtinColumns[i] < 0){
+        while(builtinColumns[i] < 0 || builtinColumns[i] >= header.length()){
             bool ok = true;
             QString input = QInputDialog::getText(QApplication::activeWindow(), "Column unavailable", "no axis with name " + last + " specify alternative axis index or name", QLineEdit::Normal, "type here", &ok);
             if(!ok)builtinColumns[i] = header.size() - 1;
-            else builtinColumns[i] = header.indexOf(input);
+            else {
+                builtinColumns[i] = input.toInt(&ok);
+                if(!ok)builtinColumns[i] = header.indexOf(input);
+            }
         }
     }
 

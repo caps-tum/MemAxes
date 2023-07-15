@@ -5,34 +5,7 @@ bool orderByHeuristic(VizAction * a, VizAction * b){
     return a->heuristic > b->heuristic;
 }
 
-int lcs(string a, string b){
-    int cache[(a.length() + 1) * (b.length() + 1)];
 
-    for(int i = 0; i < (a.length() + 1) * (b.length() + 1); i++){
-        cache[i] = 0;
-    }
-
-
-    for(int i = 0; i < b.length(); i++){
-        for(int j = 0; j < a.length(); j++){
-            if(a.at(j) == b.at(i)){
-                cache[(i + 1) * (a.length() + 1) + (j + 1)] = cache[i * (a.length() + 1) + j] + 1;
-            }else{
-                cache[(i + 1) * (a.length() + 1) + (j + 1)] = std::max(cache[(i + 1) * (a.length() + 1) + (j)], cache[(i) * (a.length() + 1) + (j + 1)]);
-            }
-        }
-    }
-    return cache[(a.length() + 1) * (b.length()) + a.length()];
-}
-
-void str_tolower(string* s){
-    for(int i = 0; i < s->length(); i++)s->at(i) = tolower(s->at(i));
-}
-
-float tagMatching(string tag, string query){
-    str_tolower(&query);
-    return (float)lcs(tag, query) / (float)tag.length();
-}
 
 ActionManager::ActionManager(DataObject *dataSetIn, PCVizWidget *pcViz, QLineEdit *searchbarNew)
 {
@@ -48,9 +21,49 @@ ActionManager::ActionManager(DataObject *dataSetIn, PCVizWidget *pcViz, QLineEdi
 
 void ActionManager::sortActions(){
     string userInput = userInputText.toStdString();
+
+    while(!actions.empty()){
+        VizAction * a = actions[actions.size() - 1];
+        actions.pop_back();
+        delete a;
+    }
+
+    int actionIdentified = -1;    
+
+    vector<int> actionsMissingLetters;
+    vector<float> actionsCompletion;
+
+    for(Phrase * action : actionPhrases){
+        actionsMissingLetters.push_back(action->matchMissingLetters(userInput));
+        actionsCompletion.push_back(action->matching(userInput));
+    }
+    
+    for(int i = 0; i < actionsMissingLetters.size(); i++){
+        if(actionsMissingLetters[i] < 2)actionIdentified = i;
+    }
+
+    vector<int> groupMissingLetters;
+    vector<float> groupCompletion;
+
+    for(Phrase * group : groupPhrases){
+        groupMissingLetters.push_back(group->matchMissingLetters(userInput));
+        groupCompletion.push_back(group->matching(userInput));
+    }
+
+    int highestCompletionGroup = std::distance(groupCompletion.begin(), std::max_element(groupCompletion.begin(), groupCompletion.end()));
+
+    actions.push_back(new SelectAction(pcViz, dataSet, groups[highestCompletionGroup]));
+
+    if(actionIdentified < 0){
+
+    }else{
+        
+    }
+
+
     //std::cerr << "user input: " << userInput << std::endl;
 
-
+    /*
     int counter = 0;
     for(VizAction * action : actions){
         float acc = 0;
@@ -66,10 +79,10 @@ void ActionManager::sortActions(){
     std::sort(actions.begin(), actions.end(), orderByHeuristic);
 
     float maxHeuristic = actions[0]->heuristic;
-
+    */
     QStringList titles;
     for(VizAction * action : actions){
-        if(action->heuristic > maxHeuristic - 1 || action->heuristic > 1)titles.push_back(QString::fromStdString(action->title()));
+        titles.push_back(QString::fromStdString(action->title()));
     }
     
     QCompleter * completer = new QCompleter(titles);
@@ -77,7 +90,7 @@ void ActionManager::sortActions(){
     completer->setCaseSensitivity(Qt::CaseInsensitive);
 
     searchbar->setCompleter(completer);
-
+    
 }
 
 VizAction* ActionManager::findActionByTitle(string title){
@@ -115,6 +128,16 @@ void ActionManager::returnPressed(){
 void ActionManager::loadDataset(DataObject* dataSetIn){
     dataSet = dataSetIn;
 
+    actionPhrases.push_back(new Phrase("select"));
+
+
+    //create axis groups
+    for(int i = 0; i < dataSet->getNumberOfAttributes() && i < 19; i++){
+        groups.push_back(new Group(i, SampleAxes::SampleAxesNames[i].toStdString()));
+        groupPhrases.push_back(new Phrase(SampleAxes::SampleAxesNames[i].toStdString()));
+    }
+
+/*
     CorrelateDatasourceInstructionLine *corDataInsLine = new CorrelateDatasourceInstructionLine(pcViz, dataSet);
     if(corDataInsLine->applicable())actions.push_back(corDataInsLine);
 
@@ -147,7 +170,7 @@ void ActionManager::loadDataset(DataObject* dataSetIn){
 
     CorrTagToRetIns *corTagToRetIns = new CorrTagToRetIns(pcViz, dataSet);
     if(corTagToRetIns->applicable())actions.push_back(corTagToRetIns);
-
+*/
 
     sortActions();
 

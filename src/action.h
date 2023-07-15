@@ -5,6 +5,61 @@
 #include <QLineEdit>
 #include <QCompleter>
 
+class Phrase
+{
+public:
+    Phrase(string phrase)
+    {
+        str_tolower(&phrase);
+        word = phrase;
+    }
+    string phrase() { return word; };
+    float matching(string query)
+    {
+        str_tolower(&query);
+        return (float)lcs(word, query) / (float)word.length();
+    }
+
+    float matchMissingLetters(string query){
+        str_tolower(&query);
+        return word.length() - lcs(word, query);
+    }
+
+private:
+    string word;
+    int lcs(string a, string b)
+    {
+        int cache[(a.length() + 1) * (b.length() + 1)];
+
+        for (int i = 0; i < (a.length() + 1) * (b.length() + 1); i++)
+        {
+            cache[i] = 0;
+        }
+
+        for (int i = 0; i < b.length(); i++)
+        {
+            for (int j = 0; j < a.length(); j++)
+            {
+                if (a.at(j) == b.at(i))
+                {
+                    cache[(i + 1) * (a.length() + 1) + (j + 1)] = cache[i * (a.length() + 1) + j] + 1;
+                }
+                else
+                {
+                    cache[(i + 1) * (a.length() + 1) + (j + 1)] = std::max(cache[(i + 1) * (a.length() + 1) + (j)], cache[(i) * (a.length() + 1) + (j + 1)]);
+                }
+            }
+        }
+        return cache[(a.length() + 1) * (b.length()) + a.length()];
+    }
+
+    void str_tolower(string *s)
+    {
+        for (int i = 0; i < s->length(); i++)
+            s->at(i) = tolower(s->at(i));
+    }
+};
+
 class VizAction
 {
 public:
@@ -12,7 +67,7 @@ public:
     virtual bool applicable() { return false; }
     virtual void perform() {}
     virtual string title() { return "this should never show up"; }
-    virtual vector<string> tags() = 0;
+    // virtual vector<string> tags() = 0;
     float heuristic = 0;
 
 protected:
@@ -29,6 +84,86 @@ protected:
     }
 };
 
+struct Group
+{
+    int dataIndex;
+    float min = 0;
+    float max = 1;
+    bool relative = true;
+    string name;
+    Group(int index, string nName) : dataIndex(index), name(nName) {}
+    bool customLimits() { return max != 1 || min != 0; }
+};
+
+class ProceduralAction : public VizAction
+{
+public:
+    ProceduralAction(PCVizWidget *pcVizIn, DataObject *dataSetIn) : VizAction(pcVizIn, dataSetIn)
+    {
+        selectAbsMax1 = -1;
+        selectAbsMax2 = -1;
+        selectAbsMin1 = -1;
+        selectAbsMin2 = -1;
+    }
+
+    bool applicable() override
+    {
+        return true;
+    }
+
+protected:
+    Group *g1;
+    Group *g2;
+    int selectAbsMin1;
+    int selectAbsMax1;
+    int selectAbsMin2;
+    int selectAbsMax2;
+
+    void specifyG2Min(int min)
+    {
+        selectAbsMin2 = min;
+    }
+
+    void specifyG2Max(int max)
+    {
+        selectAbsMax2 = max;
+    }
+};
+
+class SelectAction : public ProceduralAction
+{
+public:
+    SelectAction(PCVizWidget *pcVizIn, DataObject *dataSetIn, Group *g1) : ProceduralAction(pcVizIn, dataSetIn)
+    {
+        this->g1 = g1;
+    }
+
+    void specifyG1Min(int min)
+    {
+        selectAbsMin1 = min;
+    }
+
+    void specifyG1Max(int max)
+    {
+        selectAbsMax1 = max;
+    }
+
+    void perform() override
+    {
+        pcViz->addAxis(g1->dataIndex);
+        if (!g1->relative)
+            pcViz->selectValRange(g1->dataIndex, g1->min, g1->max);
+        else
+            pcViz->selectValRelativeRange(g1->dataIndex, g1->min, g1->max);
+    }
+
+    string title() override
+    {
+        return "Select " + g1->name;
+    }
+};
+
+/*
 class CorrelateDatasourceInstructionLine : public VizAction
 {
 public:
@@ -132,7 +267,7 @@ private:
 
 class CorrTagToRetSrc : public VizAction
 {
-    public: 
+    public:
     CorrTagToRetSrc(PCVizWidget *pcVizIn, DataObject *dataSetIn) : VizAction(pcVizIn, dataSetIn){}
     string title() override { return "Correlate Tag to Retire counter with Source Line"; };
     bool applicable() override;
@@ -144,7 +279,7 @@ private:
 
 class CorrTagToRetIns : public VizAction
 {
-    public: 
+    public:
     CorrTagToRetIns(PCVizWidget *pcVizIn, DataObject *dataSetIn) : VizAction(pcVizIn, dataSetIn){}
     string title() override { return "Correlate Tag to Retire counter with Instruction"; };
     bool applicable() override;
@@ -153,7 +288,7 @@ class CorrTagToRetIns : public VizAction
 private:
     int tagToRetDataIndex;
 };
-
+*/
 class ActionManager : public VizWidget
 {
     Q_OBJECT
@@ -174,6 +309,9 @@ private:
 
 private:
     vector<VizAction *> actions;
+    vector<Group *> groups;
+    vector<Phrase *> groupPhrases;
+    vector<Phrase *> actionPhrases;
     DataObject *dataSet;
     PCVizWidget *pcViz;
     QLineEdit *searchbar;
