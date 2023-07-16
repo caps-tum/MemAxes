@@ -23,7 +23,7 @@ public:
     float matchingLevenshtein(string query)
     {
         str_tolower(&query);
-        //std::cerr << "matching \"" << query << "\" to \"" << word << "\" : " << levenshtein_distance(word, query, 1, .3, 2.) << std::endl;
+        // std::cerr << "matching \"" << query << "\" to \"" << word << "\" : " << levenshtein_distance(word, query, 1, .3, 2.) << std::endl;
         return levenshtein_distance(word, query, 1, .3, 2.) / word.length();
     }
 
@@ -129,7 +129,7 @@ struct Group
     bool relative = true;
     string name;
     Group(int index, string nName) : dataIndex(index), name(nName) {}
-    bool customLimits() { return max != 1 || min != 0; }
+    bool customLimits() { return max != 1 || min != 0 || !relative; }
 };
 
 class ProceduralAction : public VizAction
@@ -200,6 +200,26 @@ public:
     string title() override
     {
         return "Select " + g1->name;
+    }
+};
+
+class HideAction : public ProceduralAction
+{
+public:
+    HideAction(PCVizWidget *pcVizIn, DataObject *dataSetIn, Group *g1) : ProceduralAction(pcVizIn, dataSetIn)
+    {
+        this->g1 = g1;
+    }
+
+    void perform()
+    {
+        if(pcViz->hasAxis(g1->dataIndex))pcViz->selectValRelativeRange(g1->dataIndex, 0, 1);
+        pcViz->removeAxis(g1->dataIndex);
+    }
+
+    string title() override
+    {
+        return "Hide " + g1->name;
     }
 };
 

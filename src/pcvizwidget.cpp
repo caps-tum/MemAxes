@@ -1560,3 +1560,7 @@ void PCVizWidget::setHardwareTopologySampleSet(vector<int> * indices)
     needsRecalcLines = true;
     needsRepaint = true;
 }
+
+bool PCVizWidget::hasAxis(int dataIndex){
+    return axesDataIndex.contains(dataIndex);
+}

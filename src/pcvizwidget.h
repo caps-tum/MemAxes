@@ -67,6 +67,7 @@ public:
     int correlateAxes(int dataIndex1, int dataIndex2);
     float dataMax(int dataIndex);
     float dataMin(int dataIndex);
+    bool hasAxis(int dataIndex);
 
 
 signals:
