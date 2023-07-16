@@ -14,13 +14,21 @@ public:
         word = phrase;
     }
     string phrase() { return word; };
-    float matching(string query)
+    float matchingLCS(string query)
     {
         str_tolower(&query);
         return (float)lcs(word, query) / (float)word.length();
     }
 
-    float matchMissingLetters(string query){
+    float matchingLevenshtein(string query)
+    {
+        str_tolower(&query);
+        //std::cerr << "matching \"" << query << "\" to \"" << word << "\" : " << levenshtein_distance(word, query, 1, .3, 2.) << std::endl;
+        return levenshtein_distance(word, query, 1, .3, 2.) / word.length();
+    }
+
+    float matchMissingLetters(string query)
+    {
         str_tolower(&query);
         return word.length() - lcs(word, query);
     }
@@ -51,6 +59,35 @@ private:
             }
         }
         return cache[(a.length() + 1) * (b.length()) + a.length()];
+    }
+
+    float levenshtein_distance(string a, string b, float insertion_cost, float deletion_cost, float substitution_cost)
+    {
+        int row_length = b.length() + 1;
+        int cache_size = (a.length() + 1) * row_length;
+        float cache[cache_size];
+
+        for (int j = 0; j < row_length; j++)
+            cache[j] = j;
+
+        for (int i = 1; i < a.length() + 1; i++)
+            cache[i * row_length] = i;
+
+        for (int j = 1; j < row_length; j++)
+        {
+            for (int i = 1; i < a.length() + 1; i++)
+            {
+                float this_sub_cost = substitution_cost;
+                if (a.at(i - 1) == b.at(j - 1))
+                    this_sub_cost = 0;
+
+                float nValue = std::min(cache[(i - 1) * row_length + j] + deletion_cost, cache[i * row_length + (j - 1)] + insertion_cost);
+                nValue = std::min(nValue, cache[(i - 1) * row_length + (j - 1)] + this_sub_cost);
+
+                cache[i * row_length + j] = nValue;
+            }
+        }
+        return cache[row_length * a.length() + b.length()];
     }
 
     void str_tolower(string *s)
@@ -151,10 +188,13 @@ public:
     void perform() override
     {
         pcViz->addAxis(g1->dataIndex);
-        if (!g1->relative)
-            pcViz->selectValRange(g1->dataIndex, g1->min, g1->max);
-        else
-            pcViz->selectValRelativeRange(g1->dataIndex, g1->min, g1->max);
+        if (g1->customLimits())
+        {
+            if (!g1->relative)
+                pcViz->selectValRange(g1->dataIndex, g1->min, g1->max);
+            else
+                pcViz->selectValRelativeRange(g1->dataIndex, g1->min, g1->max);
+        }
     }
 
     string title() override

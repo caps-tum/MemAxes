@@ -2,7 +2,7 @@
 #include <string>
 
 bool orderByHeuristic(VizAction * a, VizAction * b){
-    return a->heuristic > b->heuristic;
+    return a->heuristic < b->heuristic;
 }
 
 
@@ -35,7 +35,7 @@ void ActionManager::sortActions(){
 
     for(Phrase * action : actionPhrases){
         actionsMissingLetters.push_back(action->matchMissingLetters(userInput));
-        actionsCompletion.push_back(action->matching(userInput));
+        actionsCompletion.push_back(action->matchingLevenshtein(userInput));
     }
     
     for(int i = 0; i < actionsMissingLetters.size(); i++){
@@ -47,12 +47,17 @@ void ActionManager::sortActions(){
 
     for(Phrase * group : groupPhrases){
         groupMissingLetters.push_back(group->matchMissingLetters(userInput));
-        groupCompletion.push_back(group->matching(userInput));
+        groupCompletion.push_back(group->matchingLevenshtein(userInput));
     }
 
-    int highestCompletionGroup = std::distance(groupCompletion.begin(), std::max_element(groupCompletion.begin(), groupCompletion.end()));
+    //int highestCompletionGroup = std::distance(groupCompletion.begin(), std::max_element(groupCompletion.begin(), groupCompletion.end()));
 
-    actions.push_back(new SelectAction(pcViz, dataSet, groups[highestCompletionGroup]));
+    for(int i = 0; i < groups.size(); i++){
+        actions.push_back(new SelectAction(pcViz, dataSet, groups[i]));
+        actions[i]->heuristic = groupPhrases[i]->matchingLevenshtein(userInput);
+    }
+
+    std::sort(actions.begin(), actions.end(), orderByHeuristic);
 
     if(actionIdentified < 0){
 
@@ -137,40 +142,10 @@ void ActionManager::loadDataset(DataObject* dataSetIn){
         groupPhrases.push_back(new Phrase(SampleAxes::SampleAxesNames[i].toStdString()));
     }
 
-/*
-    CorrelateDatasourceInstructionLine *corDataInsLine = new CorrelateDatasourceInstructionLine(pcViz, dataSet);
-    if(corDataInsLine->applicable())actions.push_back(corDataInsLine);
-
-    CorrelateIBSL2TLBMissInstructionLine *corL2TLBInsLine = new CorrelateIBSL2TLBMissInstructionLine(pcViz, dataSet);
-    if(corL2TLBInsLine->applicable())actions.push_back(corL2TLBInsLine);
-
-    CorrelateIBSL1TLBMissInstructionLine *corL1TLBInsLine = new CorrelateIBSL1TLBMissInstructionLine(pcViz, dataSet);
-    if(corL1TLBInsLine->applicable())actions.push_back(corL1TLBInsLine);
-
-    CorrelateL1DCMissInstructionLine *corL1DCMissInsLine = new CorrelateL1DCMissInstructionLine(pcViz, dataSet);
-    if(corL1DCMissInsLine->applicable())actions.push_back(corL1DCMissInsLine);
-
-    CorrelateL2DCMissInstructionLine *corL2DCMissInsLine = new CorrelateL2DCMissInstructionLine(pcViz, dataSet);
-    if(corL2DCMissInsLine->applicable())actions.push_back(corL2DCMissInsLine);
-
-    CorrelateL1DCHitInstructionLine *corL1DCHitInsLine = new CorrelateL1DCHitInstructionLine(pcViz, dataSet);
-    if(corL1DCHitInsLine->applicable())actions.push_back(corL1DCHitInsLine);
-
-    CorrelateL2DCHitInstructionLine *corL2DCHitInsLine = new CorrelateL2DCHitInstructionLine(pcViz, dataSet);
-    if(corL2DCHitInsLine->applicable())actions.push_back(corL2DCHitInsLine);
-
-    CorrBrnMispSrcLine *corBrnMispSrcLine = new CorrBrnMispSrcLine(pcViz, dataSet);
-    if(corBrnMispSrcLine->applicable())actions.push_back(corBrnMispSrcLine);
-
-    CorrBrnMispSelect *corBrnMispSelect = new CorrBrnMispSelect(pcViz, dataSet);
-    if(corBrnMispSelect->applicable())actions.push_back(corBrnMispSelect);
-
-    CorrTagToRetSrc *corTagToRetSrc = new CorrTagToRetSrc(pcViz, dataSet);
-    if(corTagToRetSrc->applicable())actions.push_back(corTagToRetSrc);
-
-    CorrTagToRetIns *corTagToRetIns = new CorrTagToRetIns(pcViz, dataSet);
-    if(corTagToRetIns->applicable())actions.push_back(corTagToRetIns);
-*/
+    for(int i = 19; i < dataSet->getNumberOfAttributes(); i++){
+        groups.push_back(new Group(i, dataSet->GetAttributeName(i)));
+        groupPhrases.push_back(new Phrase(dataSet->GetAttributeName(i)));
+    }
 
     sortActions();
 
