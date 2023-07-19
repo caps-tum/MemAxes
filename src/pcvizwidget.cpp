@@ -540,6 +540,7 @@ void PCVizWidget::selectValRange(int dataIndex, float rangeMin, float rangeMax)
     selMaxes[axesDataIndex.indexOf(dataIndex)] = scale(rangeMax, allDimMins[dataIndex], allDimMaxes[dataIndex], 0, 1);
 
     needsProcessSelection = true;
+    needsCalcHistBins = true;
     needsRecalcLines = true;
     needsRepaint = true;
 }
@@ -550,6 +551,7 @@ void PCVizWidget::selectValRelativeRange(int dataIndex, float rangeMin, float ra
     selMaxes[axesDataIndex.indexOf(dataIndex)] = rangeMax;
 
     needsProcessSelection = true;
+    needsCalcHistBins = true;
     needsRecalcLines = true;
     needsRepaint = true;
 }
@@ -559,6 +561,8 @@ void PCVizWidget::processSelection()
     QVector<int> selDims;
     QVector<qreal> dataSelMins;
     QVector<qreal> dataSelMaxes;
+
+    std::cerr << "processing selection\n";
 
     if (!processed)
         return;

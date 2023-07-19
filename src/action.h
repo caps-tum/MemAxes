@@ -5,6 +5,8 @@
 #include <QLineEdit>
 #include <QCompleter>
 
+#define DEBUG_OUTPUT true
+
 class Phrase
 {
 public:
@@ -191,7 +193,7 @@ public:
     
     void perform() override
     {
-        std::cerr << "selecting " << g1->name << " minimum: " << selectAbsMin1 << " maximum " << selectAbsMax1 << std::endl;
+        if(DEBUG_OUTPUT)std::cerr << "selecting " << g1->name << " minimum: " << selectAbsMin1 << " maximum " << selectAbsMax1 << std::endl;
         pcViz->addAxis(g1->dataIndex);
         if (g1->customLimits())
         {
@@ -230,6 +232,54 @@ public:
     string title() override
     {
         return "Hide " + g1->name;
+    }
+};
+
+class CorrelateAction : public ProceduralAction
+{
+public:
+    CorrelateAction(PCVizWidget *pcVizIn, DataObject *dataSetIn, Group *g1) : ProceduralAction(pcVizIn, dataSetIn)
+    {
+        this->g1 = g1;
+    }
+
+    
+    void perform() override
+    {
+        if(DEBUG_OUTPUT)std::cerr << "correlating " << g1->name << " minimum: " << selectAbsMin1 << " maximum " << selectAbsMax1 << " with " << g2->name << " minimum: "<< selectAbsMin2 << " maximum: " << selectAbsMax2 << std::endl;
+        pcViz->addAxis(g1->dataIndex);
+        if (g1->customLimits())
+        {
+            if (!g1->relative)
+                pcViz->selectValRange(g1->dataIndex, g1->min, g1->max);
+            else
+                pcViz->selectValRelativeRange(g1->dataIndex, g1->min, g1->max);
+        }else{
+            if(selectAbsMax1 >= 0 && selectAbsMin1 >= 0){
+                pcViz->selectValRange(g1->dataIndex, selectAbsMin1, selectAbsMax1);
+            }
+        }
+
+        pcViz->addAxis(g2->dataIndex);
+        if (g2->customLimits())
+        {
+            if (!g2->relative)
+                pcViz->selectValRange(g2->dataIndex, g2->min, g2->max);
+            else
+                pcViz->selectValRelativeRange(g2->dataIndex, g2->min, g2->max);
+        }else{
+            if(selectAbsMax1 >= 0 && selectAbsMin2 >= 0){
+                pcViz->selectValRange(g2->dataIndex, selectAbsMin2, selectAbsMax2);
+            }
+        }
+
+        pcViz->correlateAxes(g1->dataIndex, g2->dataIndex);
+    }
+
+    string title() override
+    {
+        if(selectAbsMax1 < 0)return "Select " + g1->name;
+        return "Select " + g1->name + " minimum: " + std::to_string(selectAbsMin1) + " maximum: " + std::to_string(selectAbsMax1);
     }
 };
 
@@ -364,16 +414,18 @@ class ActionManager : public VizWidget
     Q_OBJECT
 public:
     ActionManager(DataObject *dataSetIn, PCVizWidget *pcViz, QLineEdit *searchbarNew);
+
     void loadDataset(DataObject *dataSetIn);
 
 public slots:
     void returnPressed();
     void textEdited(QString text);
-
+    void completerActivated(QString text);
     void textChanged(QString text);
 
 private:
     void sortActions();
+    void generateActions();
 
     VizAction *findActionByTitle(string title);
 

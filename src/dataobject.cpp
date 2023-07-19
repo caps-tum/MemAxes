@@ -332,6 +332,7 @@ void DataObject::selectByMultiDimRange(QVector<int> dims, QVector<qreal> mins, Q
         }
         if(partOf)selSet.insert(s);
     }
+    std::cerr << selSet.size() << " elements of select set\n";
     selectSet(selSet);
 }
 

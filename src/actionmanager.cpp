@@ -1,6 +1,8 @@
 #include "action.h"
 #include <string>
 
+
+
 bool orderByHeuristic(VizAction *a, VizAction *b)
 {
     return a->heuristic < b->heuristic;
@@ -26,95 +28,6 @@ void phraseMatch(vector<Phrase *> phrases, string query, vector<float> *result)
 
 void ActionManager::sortActions()
 {
-    string userInput = userInputText.toStdString();
-
-    QStringList split = QString::fromStdString(userInput).split(' ');
-
-    vector<int> numbers;
-    vector<string> sentences;
-
-    string acc = "";
-    int cnt = 0;
-
-    for (QString s : split)
-    {
-        bool ok = true;
-        s.toInt(&ok);
-        if (ok)
-        {
-            sentences.push_back(acc);
-            numbers.push_back(s.toInt());
-        }
-        else
-        {
-            acc = acc + " " + s.toStdString();
-        }
-    }
-
-    if (acc != "")
-        sentences.push_back(acc);
-
-    while (!actions.empty())
-    {
-        VizAction *a = actions[actions.size() - 1];
-        actions.pop_back();
-        delete a;
-    }
-
-    int actionIdentified = -1;
-
-    vector<float> actionsCompletion;
-    if (!split.empty())
-        phraseMatch(actionPhrases, split[0].toStdString(), &actionsCompletion);
-
-    for (int i = 0; i < actionsCompletion.size(); i++)
-    {
-        if (actionsCompletion[i] < 2)
-            actionIdentified = i;
-    }
-
-    vector<float> groupCompletionFirstSentence;
-    if (!sentences.empty())
-        phraseMatch(groupPhrases, sentences[0], &groupCompletionFirstSentence);
-
-    // int highestCompletionGroup = std::distance(groupCompletion.begin(), std::max_element(groupCompletion.begin(), groupCompletion.end()));
-
-    if (actionIdentified < 0)
-    {
-        for (int i = 0; i < groups.size(); i++)
-        {
-            actions.push_back(new SelectAction(pcViz, dataSet, groups[i]));
-            actions[actions.size() - 1]->heuristic = groupPhrases[i]->matchingLevenshtein(userInput);
-
-            if (pcViz->hasAxis(groups[i]->dataIndex) && !groups[i]->customLimits())
-            {
-                actions.push_back(new HideAction(pcViz, dataSet, groups[i]));
-                actions[actions.size() - 1]->heuristic = groupPhrases[i]->matchingLevenshtein(userInput);
-            }
-        }
-    }
-    else
-    {
-        for (int i = 0; i < groups.size(); i++)
-        {
-            actions.push_back(new SelectAction(pcViz, dataSet, groups[i]));
-            actions[actions.size() - 1]->heuristic = groupPhrases[i]->matchingLevenshtein(userInput);
-        }
-    }
-
-    if (numbers.size() > 1)
-    {
-        for (ProceduralAction *a : actions)
-        {
-            if(!a->customGroup())a->specifyG1Min(numbers[0]);
-        }
-
-        for (ProceduralAction *a : actions)
-        {
-            if(!a->customGroup())a->specifyG1Max(numbers[1]);
-        }
-    }
-
     std::sort(actions.begin(), actions.end(), orderByHeuristic);
 
     // set up QStringList and QCompleter
@@ -134,6 +47,146 @@ void ActionManager::sortActions()
         searchbar->completer()->setModel(model);
 }
 
+void ActionManager::generateActions()
+{
+
+    while (!actions.empty())
+    {
+        VizAction *a = actions[actions.size() - 1];
+        actions.pop_back();
+        delete a;
+    }
+
+    string userInput = userInputText.toStdString();
+
+    QStringList split = QString::fromStdString(userInput).split(' ');
+
+    vector<int> numbers;
+    vector<string> sentences;
+
+    string acc = "";
+    int cnt = 0;
+
+    float maxActionDistance = 1;
+    int actionIdentified = -1;
+    int actionWordIndex = -1;
+
+    for (int i = 0; i < split.size(); i++)
+    {
+        QString s = split[i];
+        vector<float> actionMatches;
+        phraseMatch(actionPhrases, s.toStdString(), &actionMatches);
+
+        auto minimumMatchPointer = std::min_element(actionMatches.begin(), actionMatches.end());
+        int minIndex = std::distance(actionMatches.begin(), minimumMatchPointer);
+
+        if (actionMatches[minIndex] <= .2)
+        {
+            if (actionMatches[minIndex] < maxActionDistance)
+            {
+                maxActionDistance = actionMatches[minIndex];
+                actionIdentified = minIndex;
+                actionWordIndex = i;
+            }
+        }
+    }
+
+    for (int i = 0; i < split.size(); i++)
+    {
+        QString s = split[i];
+        bool ok = true;
+        s.toInt(&ok);
+        if (ok)
+        {
+            sentences.push_back(acc);
+            acc = "";
+            numbers.push_back(s.toInt());
+        }
+        else
+        {
+            string separator = " ";
+            if (acc.empty())
+                separator = "";
+            if (i != actionWordIndex)
+            {
+                acc = acc + separator + s.toStdString();
+            }
+        }
+    }
+
+    if (acc != "")
+        sentences.push_back(acc);
+
+    if (DEBUG_OUTPUT)
+    {
+        if (actionWordIndex < 0)
+            std::cerr << "no action selected - ";
+        else
+            std::cerr << "action " << actionIdentified << ": \"" << actionPhrases[actionIdentified]->phrase() << "\" - \"";
+
+        for (string s : sentences)
+            std::cerr << s << "\" - \"";
+
+        std::cerr << std::endl;
+    }
+
+    vector<float> groupCompletionFirstSentence;
+    if (!sentences.empty())
+        phraseMatch(groupPhrases, sentences[0], &groupCompletionFirstSentence);
+
+    // int highestCompletionGroup = std::distance(groupCompletion.begin(), std::max_element(groupCompletion.begin(), groupCompletion.end()));
+
+    switch (actionIdentified)
+    {
+    case 0:
+        for (int i = 0; i < groups.size(); i++)
+        {
+            actions.push_back(new SelectAction(pcViz, dataSet, groups[i]));
+            if (!sentences.empty())
+                actions[actions.size() - 1]->heuristic = groupPhrases[i]->matchingLevenshtein(sentences[0]);
+        }
+        break;
+    case 1:
+        for (int i = 0; i < groups.size(); i++)
+        {
+            actions.push_back(new HideAction(pcViz, dataSet, groups[i]));
+            if (!sentences.empty())
+                actions[actions.size() - 1]->heuristic = groupPhrases[i]->matchingLevenshtein(sentences[0]);
+        }
+        break;
+    default:
+        for (int i = 0; i < groups.size(); i++)
+        {
+            actions.push_back(new SelectAction(pcViz, dataSet, groups[i]));
+            if (!sentences.empty())
+                actions[actions.size() - 1]->heuristic = groupPhrases[i]->matchingLevenshtein(sentences[0]);
+
+            if (pcViz->hasAxis(groups[i]->dataIndex) && !groups[i]->customLimits())
+            {
+                actions.push_back(new HideAction(pcViz, dataSet, groups[i]));
+                if (!sentences.empty())
+                    actions[actions.size() - 1]->heuristic = groupPhrases[i]->matchingLevenshtein(sentences[0]);
+            }
+        }
+        break;
+    }
+
+    if (numbers.size() > 1 && (actionIdentified < 1 || actionIdentified > 1))
+    {
+        for (ProceduralAction *a : actions)
+        {
+            if (!a->customGroup())
+                a->specifyG1Min(numbers[0]);
+        }
+
+        for (ProceduralAction *a : actions)
+        {
+            if (!a->customGroup())
+                a->specifyG1Max(numbers[1]);
+        }
+    }
+}
+
 VizAction *ActionManager::findActionByTitle(string title)
 {
     for (VizAction *action : actions)
@@ -149,6 +202,7 @@ void ActionManager::textEdited(QString text)
     // connection text code
     // std::cerr << "textedit: " << text.toStdString() << std::endl;
     userInputText = text;
+    generateActions();
     sortActions();
 }
 
@@ -166,6 +220,19 @@ void ActionManager::returnPressed()
         action->perform();
     }
     searchbar->clear();
+}
+
+void ActionManager::completerActivated(QString text)
+{
+    VizAction *action = findActionByTitle(text.toStdString());
+    if (action != nullptr)
+    {
+        action->perform();
+    }
+    searchbar->clear();
+    QStringList list;
+    QStringListModel *model = new QStringListModel(list);
+    searchbar->completer()->setModel(model);
 }
 
 void ActionManager::loadDataset(DataObject *dataSetIn)
@@ -208,6 +275,8 @@ void ActionManager::loadDataset(DataObject *dataSetIn)
     QCompleter *completer = new QCompleter(wordlist, this);
     completer->setCompletionMode(QCompleter::UnfilteredPopupCompletion);
     completer->setCaseSensitivity(Qt::CaseInsensitive);
+
+    connect(completer, SIGNAL(activated(QString)), this, SLOT(completerActivated(QString)));
 
     searchbar->setCompleter(completer);
 }
