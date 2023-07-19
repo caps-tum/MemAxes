@@ -540,6 +540,8 @@ void PCVizWidget::selectValRange(int dataIndex, float rangeMin, float rangeMax)
     selMaxes[axesDataIndex.indexOf(dataIndex)] = scale(rangeMax, allDimMins[dataIndex], allDimMaxes[dataIndex], 0, 1);
 
     needsProcessSelection = true;
+    needsRecalcLines = true;
+    needsRepaint = true;
 }
 
 void PCVizWidget::selectValRelativeRange(int dataIndex, float rangeMin, float rangeMax)
@@ -548,6 +550,8 @@ void PCVizWidget::selectValRelativeRange(int dataIndex, float rangeMin, float ra
     selMaxes[axesDataIndex.indexOf(dataIndex)] = rangeMax;
 
     needsProcessSelection = true;
+    needsRecalcLines = true;
+    needsRepaint = true;
 }
 
 void PCVizWidget::processSelection()

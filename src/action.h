@@ -148,6 +148,19 @@ public:
         return true;
     }
 
+    void specifyG1Min(int min)
+    {
+        selectAbsMin1 = min;
+    }
+
+    void specifyG1Max(int max)
+    {
+        selectAbsMax1 = max;
+    }
+
+    bool customGroup(){return g1->customLimits();};
+
+
 protected:
     Group *g1;
     Group *g2;
@@ -175,18 +188,10 @@ public:
         this->g1 = g1;
     }
 
-    void specifyG1Min(int min)
-    {
-        selectAbsMin1 = min;
-    }
-
-    void specifyG1Max(int max)
-    {
-        selectAbsMax1 = max;
-    }
-
+    
     void perform() override
     {
+        std::cerr << "selecting " << g1->name << " minimum: " << selectAbsMin1 << " maximum " << selectAbsMax1 << std::endl;
         pcViz->addAxis(g1->dataIndex);
         if (g1->customLimits())
         {
@@ -194,12 +199,17 @@ public:
                 pcViz->selectValRange(g1->dataIndex, g1->min, g1->max);
             else
                 pcViz->selectValRelativeRange(g1->dataIndex, g1->min, g1->max);
+        }else{
+            if(selectAbsMax1 >= 0 && selectAbsMin1 >= 0){
+                pcViz->selectValRange(g1->dataIndex, selectAbsMin1, selectAbsMax1);
+            }
         }
     }
 
     string title() override
     {
-        return "Select " + g1->name;
+        if(selectAbsMax1 < 0)return "Select " + g1->name;
+        return "Select " + g1->name + " minimum: " + std::to_string(selectAbsMin1) + " maximum: " + std::to_string(selectAbsMax1);
     }
 };
 
@@ -368,7 +378,7 @@ private:
     VizAction *findActionByTitle(string title);
 
 private:
-    vector<VizAction *> actions;
+    vector<ProceduralAction *> actions;
     vector<Group *> groups;
     vector<Phrase *> groupPhrases;
     vector<Phrase *> actionPhrases;

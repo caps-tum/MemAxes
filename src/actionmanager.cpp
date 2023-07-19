@@ -16,9 +16,43 @@ ActionManager::ActionManager(DataObject *dataSetIn, PCVizWidget *pcViz, QLineEdi
     userInputText = "";
 }
 
+void phraseMatch(vector<Phrase *> phrases, string query, vector<float> *result)
+{
+    for (Phrase *p : phrases)
+    {
+        result->push_back(p->matchingLevenshtein(query));
+    }
+}
+
 void ActionManager::sortActions()
 {
     string userInput = userInputText.toStdString();
+
+    QStringList split = QString::fromStdString(userInput).split(' ');
+
+    vector<int> numbers;
+    vector<string> sentences;
+
+    string acc = "";
+    int cnt = 0;
+
+    for (QString s : split)
+    {
+        bool ok = true;
+        s.toInt(&ok);
+        if (ok)
+        {
+            sentences.push_back(acc);
+            numbers.push_back(s.toInt());
+        }
+        else
+        {
+            acc = acc + " " + s.toStdString();
+        }
+    }
+
+    if (acc != "")
+        sentences.push_back(acc);
 
     while (!actions.empty())
     {
@@ -29,29 +63,19 @@ void ActionManager::sortActions()
 
     int actionIdentified = -1;
 
-    vector<int> actionsMissingLetters;
     vector<float> actionsCompletion;
+    if (!split.empty())
+        phraseMatch(actionPhrases, split[0].toStdString(), &actionsCompletion);
 
-    for (Phrase *action : actionPhrases)
+    for (int i = 0; i < actionsCompletion.size(); i++)
     {
-        actionsMissingLetters.push_back(action->matchMissingLetters(userInput));
-        actionsCompletion.push_back(action->matchingLevenshtein(userInput));
-    }
-
-    for (int i = 0; i < actionsMissingLetters.size(); i++)
-    {
-        if (actionsMissingLetters[i] < 2)
+        if (actionsCompletion[i] < 2)
             actionIdentified = i;
     }
 
-    vector<int> groupMissingLetters;
-    vector<float> groupCompletion;
-
-    for (Phrase *group : groupPhrases)
-    {
-        groupMissingLetters.push_back(group->matchMissingLetters(userInput));
-        groupCompletion.push_back(group->matchingLevenshtein(userInput));
-    }
+    vector<float> groupCompletionFirstSentence;
+    if (!sentences.empty())
+        phraseMatch(groupPhrases, sentences[0], &groupCompletionFirstSentence);
 
     // int highestCompletionGroup = std::distance(groupCompletion.begin(), std::max_element(groupCompletion.begin(), groupCompletion.end()));
 
@@ -62,7 +86,8 @@ void ActionManager::sortActions()
             actions.push_back(new SelectAction(pcViz, dataSet, groups[i]));
             actions[actions.size() - 1]->heuristic = groupPhrases[i]->matchingLevenshtein(userInput);
 
-            if(pcViz->hasAxis(groups[i]->dataIndex) && !groups[i]->customLimits()){
+            if (pcViz->hasAxis(groups[i]->dataIndex) && !groups[i]->customLimits())
+            {
                 actions.push_back(new HideAction(pcViz, dataSet, groups[i]));
                 actions[actions.size() - 1]->heuristic = groupPhrases[i]->matchingLevenshtein(userInput);
             }
@@ -77,6 +102,19 @@ void ActionManager::sortActions()
         }
     }
 
+    if (numbers.size() > 1)
+    {
+        for (ProceduralAction *a : actions)
+        {
+            if(!a->customGroup())a->specifyG1Min(numbers[0]);
+        }
+
+        for (ProceduralAction *a : actions)
+        {
+            if(!a->customGroup())a->specifyG1Max(numbers[1]);
+        }
+    }
+
     std::sort(actions.begin(), actions.end(), orderByHeuristic);
 
     // set up QStringList and QCompleter
@@ -86,11 +124,14 @@ void ActionManager::sortActions()
         titles.push_back(QString::fromStdString(action->title()));
     }
 
-    QCompleter *completer = new QCompleter(titles);
-    completer->setCompletionMode(QCompleter::UnfilteredPopupCompletion);
-    completer->setCaseSensitivity(Qt::CaseInsensitive);
+    QStringListModel *model = new QStringListModel(titles);
 
-    searchbar->setCompleter(completer);
+    // QCompleter *completer = new QCompleter(titles);
+    // completer->setCompletionMode(QCompleter::UnfilteredPopupCompletion);
+    // completer->setCaseSensitivity(Qt::CaseInsensitive);
+
+    if (searchbar->completer() != nullptr)
+        searchbar->completer()->setModel(model);
 }
 
 VizAction *ActionManager::findActionByTitle(string title)
@@ -149,14 +190,12 @@ void ActionManager::loadDataset(DataObject *dataSetIn)
     }
 
     // L1 cache miss group
-    Group * l1MissGroup = new Group(18, "l1 cache miss");
+    Group *l1MissGroup = new Group(18, "l1 cache miss");
     l1MissGroup->relative = false;
     l1MissGroup->min = 2;
     l1MissGroup->max = pcViz->dataMax(18);
     groups.push_back(l1MissGroup);
     groupPhrases.push_back(new Phrase("l1 cache miss"));
-
-
 
     sortActions();
 
@@ -165,6 +204,7 @@ void ActionManager::loadDataset(DataObject *dataSetIn)
     {
         wordlist.push_back(QString::fromStdString(action->title()));
     }
+    QStringListModel *model = new QStringListModel(wordlist);
     QCompleter *completer = new QCompleter(wordlist, this);
     completer->setCompletionMode(QCompleter::UnfilteredPopupCompletion);
     completer->setCaseSensitivity(Qt::CaseInsensitive);
