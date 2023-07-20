@@ -145,6 +145,24 @@ struct Group
     string name;
     Group(int index, string nName) : dataIndex(index), name(nName) {}
     bool customLimits() { return max != 1 || min != 0 || !relative; }
+    void select(PCVizWidget * pcViz, int customMin, int customMax){
+        if(customLimits()){
+            if(relative)pcViz->selectValRelativeRange(dataIndex, min, max);
+            else pcViz->selectValRange(dataIndex, min, max);
+        }else{
+            if(customMin >= 0 && customMax >= 0){
+                pcViz->selectValRange(dataIndex, min, max);
+            }else{
+                if(customMin >= 0){
+                    pcViz->selectValRange(dataIndex, customMin, pcViz->dataMax(dataIndex));
+                }
+
+                if(customMax >= 0){
+                    pcViz->selectValRange(dataIndex, pcViz->dataMin(dataIndex), customMax);
+                }
+            }
+        }
+    }
 };
 
 class ProceduralAction : public VizAction
@@ -152,10 +170,7 @@ class ProceduralAction : public VizAction
 public:
     ProceduralAction(PCVizWidget *pcVizIn, DataObject *dataSetIn) : VizAction(pcVizIn, dataSetIn)
     {
-        selectAbsMax1 = -1;
-        selectAbsMax2 = -1;
-        selectAbsMin1 = -1;
-        selectAbsMin2 = -1;
+
     }
 
     bool applicable() override
@@ -163,15 +178,7 @@ public:
         return true;
     }
 
-    void specifyG1Min(int min)
-    {
-        selectAbsMin1 = min;
-    }
-
-    void specifyG1Max(int max)
-    {
-        selectAbsMax1 = max;
-    }
+    
 
     bool customGroup(){return g1->customLimits();};
 
@@ -179,20 +186,9 @@ public:
 protected:
     Group *g1;
     Group *g2;
-    int selectAbsMin1;
-    int selectAbsMax1;
-    int selectAbsMin2;
-    int selectAbsMax2;
+    
 
-    void specifyG2Min(int min)
-    {
-        selectAbsMin2 = min;
-    }
-
-    void specifyG2Max(int max)
-    {
-        selectAbsMax2 = max;
-    }
+    
 };
 
 class SelectAction : public ProceduralAction
@@ -201,31 +197,37 @@ public:
     SelectAction(PCVizWidget *pcVizIn, DataObject *dataSetIn, Group *g1) : ProceduralAction(pcVizIn, dataSetIn)
     {
         this->g1 = g1;
+        selectMin = -1;
+        selectMax = -1;
+    }
+
+    void specifyG1Min(int min)
+    {
+        selectMin = min;
+    }
+
+    void specifyG1Max(int max)
+    {
+        selectMax = max;
     }
 
     
     void perform() override
     {
-        if(DEBUG_OUTPUT)std::cerr << "selecting " << g1->name << " minimum: " << selectAbsMin1 << " maximum " << selectAbsMax1 << std::endl;
+        if(DEBUG_OUTPUT)std::cerr << "selecting " << g1->name << " minimum: " << selectMin << " maximum " << selectMax << std::endl;
         pcViz->addAxis(g1->dataIndex);
-        if (g1->customLimits())
-        {
-            if (!g1->relative)
-                pcViz->selectValRange(g1->dataIndex, g1->min, g1->max);
-            else
-                pcViz->selectValRelativeRange(g1->dataIndex, g1->min, g1->max);
-        }else{
-            if(selectAbsMax1 >= 0 && selectAbsMin1 >= 0){
-                pcViz->selectValRange(g1->dataIndex, selectAbsMin1, selectAbsMax1);
-            }
-        }
+        g1->select(pcViz, selectMin, selectMax);
     }
 
     string title() override
     {
-        if(selectAbsMax1 < 0)return "Select " + g1->name;
-        return "Select " + g1->name + " minimum: " + std::to_string(selectAbsMin1) + " maximum: " + std::to_string(selectAbsMax1);
+        if(selectMax < 0)return "Select " + g1->name;
+        return "Select " + g1->name + " minimum: " + std::to_string(selectMin) + " maximum: " + std::to_string(selectMax);
     }
+
+    private:
+    int selectMin;
+    int selectMax;
 };
 
 class HideAction : public ProceduralAction
@@ -255,6 +257,31 @@ public:
     {
         this->g1 = g1;
         this->g2 = g2;
+
+        selectAbsMax1 = -1;
+        selectAbsMax2 = -1;
+        selectAbsMin1 = -1;
+        selectAbsMin2 = -1;
+    }
+
+    void specifyG1Min(int min)
+    {
+        selectAbsMin1 = min;
+    }
+
+    void specifyG1Max(int max)
+    {
+        selectAbsMax1 = max;
+    }
+
+    void specifyG2Min(int min)
+    {
+        selectAbsMin2 = min;
+    }
+
+    void specifyG2Max(int max)
+    {
+        selectAbsMax2 = max;
     }
 
     
@@ -271,6 +298,10 @@ public:
         }else{
             if(selectAbsMax1 >= 0 && selectAbsMin1 >= 0){
                 pcViz->selectValRange(g1->dataIndex, selectAbsMin1, selectAbsMax1);
+            }else{
+                if(selectAbsMin1 >= 0){
+                    pcViz->selectValRange(g1->dataIndex, selectAbsMin1, pcViz->dataMax(g1->dataIndex));
+                }
             }
         }
 
@@ -282,8 +313,12 @@ public:
             else
                 pcViz->selectValRelativeRange(g2->dataIndex, g2->min, g2->max);
         }else{
-            if(selectAbsMax1 >= 0 && selectAbsMin2 >= 0){
+            if(selectAbsMax2 >= 0 && selectAbsMin2 >= 0){
                 pcViz->selectValRange(g2->dataIndex, selectAbsMin2, selectAbsMax2);
+            }else{
+                if(selectAbsMin2 >= 0){
+                    pcViz->selectValRange(g2->dataIndex, selectAbsMin2, pcViz->dataMax(g2->dataIndex));
+                }
             }
         }
 
@@ -292,137 +327,40 @@ public:
 
     string title() override
     {
-        if(selectAbsMax1 < 0)return "Correlate " + g1->name + " with " + g2->name;
-        return "Correlate " + g1->name + " minimum: " + std::to_string(selectAbsMin1) + " maximum: " + std::to_string(selectAbsMax1);
+        string output = "Correlate " + g1->name;
+        if(selectAbsMin1 >= 0)output = output + " min: " + std::to_string(selectAbsMin1);
+        if(selectAbsMax1 >= 0)output = output + " max: " + std::to_string(selectAbsMax1);
+        output = output + " with " + g2->name;
+        if(selectAbsMin2 >= 0)output = output + " min: " + std::to_string(selectAbsMin2);
+        if(selectAbsMax2 >= 0)output = output + " max: " + std::to_string(selectAbsMax2); 
+        return output;
+    }
+    private:
+    int selectAbsMin1;
+    int selectAbsMax1;
+    int selectAbsMin2;
+    int selectAbsMax2;
+};
+
+class ShowAction : public ProceduralAction{
+    public:
+    ShowAction(PCVizWidget *pcVizIn, DataObject *dataSetIn, Group *g1) : ProceduralAction(pcVizIn, dataSetIn)
+    {
+        this->g1 = g1;
+    }
+
+    void perform()
+    {
+        
+        pcViz->addAxis(g1->dataIndex);
+    }
+
+    string title() override
+    {
+        return "Show " + g1->name;
     }
 };
 
-/*
-class CorrelateDatasourceInstructionLine : public VizAction
-{
-public:
-    CorrelateDatasourceInstructionLine(PCVizWidget *pcVizIn, DataObject *dataSetIn) : VizAction(pcVizIn, dataSetIn) {}
-    string title() override { return "Correlate Code Lines with Data Sources"; };
-    bool applicable() override;
-    void perform() override;
-    vector<string> tags() override { return {"code line", "source line", "data source"}; }
-};
-
-class CorrelateIBSL2TLBMissInstructionLine : public VizAction
-{
-public:
-    CorrelateIBSL2TLBMissInstructionLine(PCVizWidget *pcVizIn, DataObject *dataSetIn) : VizAction(pcVizIn, dataSetIn) {}
-    string title() override { return "Correlate Code Lines with IBS L2 TLB information"; };
-    bool applicable() override;
-    void perform() override;
-    vector<string> tags() override { return {"tlb", "l2", "lookaside", "translation"}; }
-
-private:
-    int l2tlbmissIndex;
-};
-
-class CorrelateIBSL1TLBMissInstructionLine : public VizAction
-{
-public:
-    CorrelateIBSL1TLBMissInstructionLine(PCVizWidget *pcVizIn, DataObject *dataSetIn) : VizAction(pcVizIn, dataSetIn) {}
-    string title() override { return "Correlate Code Lines with IBS L1 TLB information"; };
-    bool applicable() override;
-    void perform() override;
-    vector<string> tags() override { return {"tlb", "l1", "lookaside", "translation"}; }
-
-private:
-    int l1tlbmissIndex;
-};
-
-class CorrelateL1DCMissInstructionLine : public VizAction
-{
-public:
-    CorrelateL1DCMissInstructionLine(PCVizWidget *pcVizIn, DataObject *dataSetIn) : VizAction(pcVizIn, dataSetIn) {}
-    string title() override { return "Correlate Code Lines with L1 Data Cache Misses"; };
-    bool applicable() override;
-    void perform() override;
-    vector<string> tags() override { return {"cache", "miss", "l1", "dc miss", "select", "source line"}; }
-};
-
-class CorrelateL2DCMissInstructionLine : public VizAction
-{
-public:
-    CorrelateL2DCMissInstructionLine(PCVizWidget *pcVizIn, DataObject *dataSetIn) : VizAction(pcVizIn, dataSetIn) {}
-    string title() override { return "Correlate Code Lines with L2 Data Cache Misses"; };
-    bool applicable() override;
-    void perform() override;
-    vector<string> tags() override { return {"cache", "miss", "l2", "dc miss", "select", "source line"}; }
-};
-
-class CorrelateL1DCHitInstructionLine : public VizAction
-{
-public:
-    CorrelateL1DCHitInstructionLine(PCVizWidget *pcVizIn, DataObject *dataSetIn) : VizAction(pcVizIn, dataSetIn) {}
-    string title() override { return "Correlate Code Lines with L1 Data Cache Hits"; };
-    bool applicable() override;
-    void perform() override;
-    vector<string> tags() override { return {"cache hit", "l1", "dc hit", "select", "source line"}; }
-};
-
-class CorrelateL2DCHitInstructionLine : public VizAction
-{
-public:
-    CorrelateL2DCHitInstructionLine(PCVizWidget *pcVizIn, DataObject *dataSetIn) : VizAction(pcVizIn, dataSetIn) {}
-    string title() override { return "Correlate Code Lines with L2 Data Cache Hits"; };
-    bool applicable() override;
-    void perform() override;
-    vector<string> tags() override { return {"cache hit", "l2", "dc hit", "select", "source line"}; }
-};
-
-
-class CorrBrnMispSrcLine : public VizAction
-{
-public:
-    CorrBrnMispSrcLine(PCVizWidget *pcVizIn, DataObject *dataSetIn) : VizAction(pcVizIn, dataSetIn) {}
-    string title() override { return "Correlate Branch mispredictions with source lines"; };
-    bool applicable() override;
-    void perform() override;
-    vector<string> tags() override { return {"misprediction", "branch", "source line"}; }
-private:
-    int brnMispDataIndex;
-};
-
-class CorrBrnMispSelect : public VizAction
-{
-public:
-    CorrBrnMispSelect(PCVizWidget *pcVizIn, DataObject *dataSetIn) : VizAction(pcVizIn, dataSetIn) {}
-    string title() override { return "Select Branch mispredictions"; };
-    bool applicable() override;
-    void perform() override;
-    vector<string> tags() override { return {"misprediction", "branch", "select"}; }
-private:
-    int brnMispDataIndex;
-};
-
-class CorrTagToRetSrc : public VizAction
-{
-    public:
-    CorrTagToRetSrc(PCVizWidget *pcVizIn, DataObject *dataSetIn) : VizAction(pcVizIn, dataSetIn){}
-    string title() override { return "Correlate Tag to Retire counter with Source Line"; };
-    bool applicable() override;
-    void perform() override;
-    vector<string> tags() override { return {"tag to", "retire", "correlate", "source"}; }
-private:
-    int tagToRetDataIndex;
-};
-
-class CorrTagToRetIns : public VizAction
-{
-    public:
-    CorrTagToRetIns(PCVizWidget *pcVizIn, DataObject *dataSetIn) : VizAction(pcVizIn, dataSetIn){}
-    string title() override { return "Correlate Tag to Retire counter with Instruction"; };
-    bool applicable() override;
-    void perform() override;
-    vector<string> tags() override { return {"tag to", "retire", "correlate", "instruction"}; }
-private:
-    int tagToRetDataIndex;
-};
-*/
 class ActionManager : public VizWidget
 {
     Q_OBJECT

@@ -66,6 +66,7 @@ void ActionManager::generateActions()
     QStringList split = QString::fromStdString(userInput).split(' ');
 
     vector<int> numbers;
+    vector<int> numberPosition;
     vector<string> sentences;
 
     string acc = "";
@@ -102,6 +103,7 @@ void ActionManager::generateActions()
         s.toInt(&ok);
         if (ok)
         {
+            numberPosition.push_back(sentences.size());
             sentences.push_back(acc);
             acc = "";
             numbers.push_back(s.toInt());
@@ -158,21 +160,20 @@ void ActionManager::generateActions()
         for (int i = 0; i < groups.size(); i++)
         {
             SelectAction *sAction = new SelectAction(pcViz, dataSet, groups[i]);
-            std::cerr << "constructor successful\n";
-            if (!numbers.empty())
+
+            if (numbers.size() >= 1)
             {
-                std::cerr << "numbers not empty\n";
-                if (numbers.size() >= 2)
-                {
-                    std::cerr << "selection range given. Specifying start of range\n";
-                    sAction->specifyG1Min(numbers[0]);
-                    std::cerr << "specifying end of range\n";
-                    sAction->specifyG1Max(numbers[1]);
-                }
-            }else{std::cerr << "numbers is empty";}
-            if(sentences.size() >= 1)sAction->heuristic = groupPhrases[i]->matchingLevenshtein(sentences[0]);
+                sAction->specifyG1Min(numbers[0]);
+            }
+
+            if (numbers.size() >= 2)
+            {
+                sAction->specifyG1Max(numbers[1]);
+            }
+
+            if (sentences.size() >= 1)
+                sAction->heuristic = groupPhrases[i]->matchingLevenshtein(sentences[0]);
             actions.push_back(sAction);
-            std::cerr << "pushed select action\n";
         }
     }
     break;
@@ -181,9 +182,12 @@ void ActionManager::generateActions()
         // hide action
         for (int i = 0; i < groups.size(); i++)
         {
-            actions.push_back(new HideAction(pcViz, dataSet, groups[i]));
-            if (!sentences.empty())
-                actions[actions.size() - 1]->heuristic = groupPhrases[i]->matchingLevenshtein(sentences[0]);
+            if (pcViz->hasAxis(groups[i]->dataIndex) && !groups[i]->customLimits())
+            {
+                actions.push_back(new HideAction(pcViz, dataSet, groups[i]));
+                if (!sentences.empty())
+                    actions[actions.size() - 1]->heuristic = groupPhrases[i]->matchingLevenshtein(sentences[0]);
+            }
         }
     }
     break;
@@ -217,6 +221,37 @@ void ActionManager::generateActions()
                 if (sentences.size() >= 2)
                     h2 = groupPhrases[secondSentenceOrder[j]]->matchingLevenshtein(sentences[1]);
                 nAction->heuristic = h1 + h2;
+
+                bool minimumOne = false;
+                bool minimumTwo = false;
+
+                for (int k = 0; k < numbers.size(); k++)
+                {
+                    if (numberPosition[k] == 0)
+                    {
+                        if (minimumOne)
+                        {
+                            nAction->specifyG1Max(numbers[k]);
+                        }
+                        else
+                        {
+                            nAction->specifyG1Min(numbers[k]);
+                            minimumOne = true;
+                        }
+                    }
+                    else
+                    {
+                        if (minimumTwo)
+                        {
+                            nAction->specifyG2Max(numbers[k]);
+                        }
+                        else
+                        {
+                            minimumTwo = true;
+                            nAction->specifyG2Min(numbers[k]);
+                        }
+                    }
+                }
             }
         }
     }
@@ -228,6 +263,20 @@ void ActionManager::generateActions()
         actions.push_back(help);
         break;
     }
+    case 4:
+    {
+        // show action
+        for (int i = 0; i < groups.size(); i++)
+        {
+            if (!groups[i]->customLimits())
+            {
+                actions.push_back(new ShowAction(pcViz, dataSet, groups[i]));
+                if (!sentences.empty())
+                    actions[actions.size() - 1]->heuristic = groupPhrases[i]->matchingLevenshtein(sentences[0]);
+            }
+        }
+    }
+    break;
     default:
     {
         for (int i = 0; i < groups.size(); i++)
@@ -304,6 +353,7 @@ void ActionManager::loadDataset(DataObject *dataSetIn)
     actionPhrases.push_back(new Phrase("hide"));
     actionPhrases.push_back(new Phrase("correlate"));
     actionPhrases.push_back(new Phrase("help"));
+    actionPhrases.push_back(new Phrase("show"));
 
     // create builin axis groups
     for (int i = 0; i < dataSet->getNumberOfAttributes() && i < 19; i++)
