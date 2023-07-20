@@ -4,6 +4,7 @@
 #include <QPushButton>
 #include <QLineEdit>
 #include <QCompleter>
+#include <QMessageBox>
 
 #define DEBUG_OUTPUT true
 
@@ -123,6 +124,18 @@ protected:
     }
 };
 
+class HelpAction : public VizAction{
+public:
+    HelpAction(PCVizWidget * pcVizIn, DataObject * dataSetIn) : VizAction(pcVizIn, dataSetIn){}
+    bool applicable() override {return true;};
+    void perform() override {
+        QMessageBox help;
+        help.setText("MemAxes accepted commands:\nSelect: select a value range\nHide: hide an axis in the parallel coordinates view\nCorrelate: move two axes in the parallel coordinates next to one another\nHelp: display this message");
+        help.exec();
+    }
+    string title() override {return "Help";}
+};
+
 struct Group
 {
     int dataIndex;
@@ -238,9 +251,10 @@ public:
 class CorrelateAction : public ProceduralAction
 {
 public:
-    CorrelateAction(PCVizWidget *pcVizIn, DataObject *dataSetIn, Group *g1) : ProceduralAction(pcVizIn, dataSetIn)
+    CorrelateAction(PCVizWidget *pcVizIn, DataObject *dataSetIn, Group *g1, Group *g2) : ProceduralAction(pcVizIn, dataSetIn)
     {
         this->g1 = g1;
+        this->g2 = g2;
     }
 
     
@@ -278,8 +292,8 @@ public:
 
     string title() override
     {
-        if(selectAbsMax1 < 0)return "Select " + g1->name;
-        return "Select " + g1->name + " minimum: " + std::to_string(selectAbsMin1) + " maximum: " + std::to_string(selectAbsMax1);
+        if(selectAbsMax1 < 0)return "Correlate " + g1->name + " with " + g2->name;
+        return "Correlate " + g1->name + " minimum: " + std::to_string(selectAbsMin1) + " maximum: " + std::to_string(selectAbsMax1);
     }
 };
 
@@ -430,7 +444,7 @@ private:
     VizAction *findActionByTitle(string title);
 
 private:
-    vector<ProceduralAction *> actions;
+    vector<VizAction *> actions;
     vector<Group *> groups;
     vector<Phrase *> groupPhrases;
     vector<Phrase *> actionPhrases;

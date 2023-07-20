@@ -1,8 +1,6 @@
 #include "action.h"
 #include <string>
 
-
-
 bool orderByHeuristic(VizAction *a, VizAction *b)
 {
     return a->heuristic < b->heuristic;
@@ -24,6 +22,12 @@ void phraseMatch(vector<Phrase *> phrases, string query, vector<float> *result)
     {
         result->push_back(p->matchingLevenshtein(query));
     }
+}
+
+void orderIndicesByMatch(vector<Phrase *> phrases, string query, vector<int> *result)
+{
+    std::sort(result->begin(), result->end(), [phrases, query](int a, int b) -> int
+              { return phrases[a]->matchingLevenshtein(query) < phrases[b]->matchingLevenshtein(query); });
 }
 
 void ActionManager::sortActions()
@@ -104,12 +108,21 @@ void ActionManager::generateActions()
         }
         else
         {
-            string separator = " ";
-            if (acc.empty())
-                separator = "";
-            if (i != actionWordIndex)
+            if (s.toStdString() == "with")
             {
-                acc = acc + separator + s.toStdString();
+                if (!acc.empty())
+                    sentences.push_back(acc);
+                acc = "";
+            }
+            else
+            {
+                string separator = " ";
+                if (acc.empty())
+                    separator = "";
+                if (i != actionWordIndex)
+                {
+                    acc = acc + separator + s.toStdString();
+                }
             }
         }
     }
@@ -135,26 +148,88 @@ void ActionManager::generateActions()
         phraseMatch(groupPhrases, sentences[0], &groupCompletionFirstSentence);
 
     // int highestCompletionGroup = std::distance(groupCompletion.begin(), std::max_element(groupCompletion.begin(), groupCompletion.end()));
-
+    vector<int> firstSentenceOrder;
+    vector<int> secondSentenceOrder;
     switch (actionIdentified)
     {
     case 0:
+    {
+        // Select action
         for (int i = 0; i < groups.size(); i++)
         {
-            actions.push_back(new SelectAction(pcViz, dataSet, groups[i]));
-            if (!sentences.empty())
-                actions[actions.size() - 1]->heuristic = groupPhrases[i]->matchingLevenshtein(sentences[0]);
+            SelectAction *sAction = new SelectAction(pcViz, dataSet, groups[i]);
+            std::cerr << "constructor successful\n";
+            if (!numbers.empty())
+            {
+                std::cerr << "numbers not empty\n";
+                if (numbers.size() >= 2)
+                {
+                    std::cerr << "selection range given. Specifying start of range\n";
+                    sAction->specifyG1Min(numbers[0]);
+                    std::cerr << "specifying end of range\n";
+                    sAction->specifyG1Max(numbers[1]);
+                }
+            }else{std::cerr << "numbers is empty";}
+            if(sentences.size() >= 1)sAction->heuristic = groupPhrases[i]->matchingLevenshtein(sentences[0]);
+            actions.push_back(sAction);
+            std::cerr << "pushed select action\n";
         }
-        break;
+    }
+    break;
     case 1:
+    {
+        // hide action
         for (int i = 0; i < groups.size(); i++)
         {
             actions.push_back(new HideAction(pcViz, dataSet, groups[i]));
             if (!sentences.empty())
                 actions[actions.size() - 1]->heuristic = groupPhrases[i]->matchingLevenshtein(sentences[0]);
         }
+    }
+    break;
+    case 2:
+    {
+        // correlate action
+        if (DEBUG_OUTPUT)
+            std::cerr << "writing correlation action\n";
+
+        for (int i = 0; i < groupPhrases.size(); i++)
+        {
+            firstSentenceOrder.push_back(i);
+            secondSentenceOrder.push_back(i);
+        }
+
+        if (sentences.size() >= 1)
+            orderIndicesByMatch(groupPhrases, sentences[0], &firstSentenceOrder);
+        if (sentences.size() >= 2)
+            orderIndicesByMatch(groupPhrases, sentences[1], &secondSentenceOrder);
+
+        for (int i = 0; i < 3; i++)
+        {
+            for (int j = 0; j < 3; j++)
+            {
+                CorrelateAction *nAction = new CorrelateAction(pcViz, dataSet, groups[firstSentenceOrder[i]], groups[secondSentenceOrder[j]]);
+                actions.push_back(nAction);
+                float h1 = 1;
+                float h2 = 1;
+                if (sentences.size() >= 1)
+                    h1 = groupPhrases[firstSentenceOrder[i]]->matchingLevenshtein(sentences[0]);
+                if (sentences.size() >= 2)
+                    h2 = groupPhrases[secondSentenceOrder[j]]->matchingLevenshtein(sentences[1]);
+                nAction->heuristic = h1 + h2;
+            }
+        }
+    }
+    break;
+    case 3:
+    {
+        // help action
+        HelpAction *help = new HelpAction(pcViz, dataSet);
+        actions.push_back(help);
         break;
+    }
     default:
+    {
         for (int i = 0; i < groups.size(); i++)
         {
             actions.push_back(new SelectAction(pcViz, dataSet, groups[i]));
@@ -168,22 +243,8 @@ void ActionManager::generateActions()
                     actions[actions.size() - 1]->heuristic = groupPhrases[i]->matchingLevenshtein(sentences[0]);
             }
         }
-        break;
     }
-
-    if (numbers.size() > 1 && (actionIdentified < 1 || actionIdentified > 1))
-    {
-        for (ProceduralAction *a : actions)
-        {
-            if (!a->customGroup())
-                a->specifyG1Min(numbers[0]);
-        }
-
-        for (ProceduralAction *a : actions)
-        {
-            if (!a->customGroup())
-                a->specifyG1Max(numbers[1]);
-        }
+    break;
     }
 }
 
@@ -241,6 +302,8 @@ void ActionManager::loadDataset(DataObject *dataSetIn)
 
     actionPhrases.push_back(new Phrase("select"));
     actionPhrases.push_back(new Phrase("hide"));
+    actionPhrases.push_back(new Phrase("correlate"));
+    actionPhrases.push_back(new Phrase("help"));
 
     // create builin axis groups
     for (int i = 0; i < dataSet->getNumberOfAttributes() && i < 19; i++)
