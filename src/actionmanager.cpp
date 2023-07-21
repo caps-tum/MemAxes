@@ -178,13 +178,13 @@ void ActionManager::generateActions()
         secondSentenceOrder[2] = 0;
     }
     // bring correlate with cpu to second place
-    if (secondSentenceOrder.size(> 16))
+    if (secondSentenceOrder.size() > 16)
     {
         secondSentenceOrder[1] = 16;
         secondSentenceOrder[16] = 1;
     }
     // bring correlate with data source to third place
-    if (secondSentenceOrder.size > 18)
+    if (secondSentenceOrder.size() > 18)
     {
         secondSentenceOrder[2] = 18;
         secondSentenceOrder[18] = 2;
