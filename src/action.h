@@ -137,7 +137,7 @@ struct Group
     string name;
     Group(int index, string nName) : dataIndex(index), name(nName) {}
     bool customLimits() { return max != 1 || min != 0 || !relative; }
-    void select(PCVizWidget * pcViz, int customMin, int customMax){
+    virtual void select(PCVizWidget * pcViz, int customMin, int customMax){
 
         if(DEBUG_OUTPUT){
             std::cerr << "selecting group " + name + " limits " << min << " : " << max << " input limits: " << customMin << " : " << customMax << std::endl; 
@@ -160,6 +160,17 @@ struct Group
             }
         }
     }
+};
+
+struct AllGroup : Group{
+    AllGroup() : Group(0, "All"){}
+    bool customLimits(){
+        return false;
+    }
+    void select(PCVizWidget * pcViz, int customMin, int customMax) override{
+        pcViz->selectAll();
+    }
+
 };
 
 class ProceduralAction : public VizAction

@@ -1414,7 +1414,7 @@ void PCVizWidget::drawQtPainter(QPainter *painter)
     painter->setBrush(Qt::NoBrush);
     for (int i = 0; i < numDimensions; i++)
     {
-        // if(selMins[i] != -1)
+        if(selMins[i] != -1)
         {
             a = QPointF(plotBBox.left() + axesPositions[i] * plotBBox.width() - halfCursorWidth,
                         plotBBox.top() + plotBBox.height() * (1.0 - selMins[i]));
@@ -1571,4 +1571,17 @@ void PCVizWidget::setHardwareTopologySampleSet(vector<int> * indices)
 
 bool PCVizWidget::hasAxis(int dataIndex){
     return axesDataIndex.contains(dataIndex);
+}
+
+void PCVizWidget::selectAll(){
+    dataSet->selectAll();
+
+    for(int i = 0; i < numDimensions; i++){
+        selMins[i] = -1;
+        selMaxes[i] = -1;
+    }
+
+    needsRecalcLines = true;
+    needsCalcHistBins = true;
+    needsRepaint = true;
 }

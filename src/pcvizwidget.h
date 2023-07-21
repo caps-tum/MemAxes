@@ -69,6 +69,7 @@ public:
     float dataMin(int dataIndex);
     bool hasAxis(int dataIndex);
 
+    void selectAll();
 
 signals:
     void lineSelected(int line);

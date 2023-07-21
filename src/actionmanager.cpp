@@ -1,6 +1,8 @@
 #include "action.h"
 #include <string>
 
+#define NUM_RECOMMENDATIONS 7
+
 bool orderByHeuristic(VizAction *a, VizAction *b)
 {
     return a->heuristic < b->heuristic;
@@ -163,33 +165,45 @@ void ActionManager::generateActions()
     vector<int> firstSentenceOrder;
     vector<int> secondSentenceOrder;
 
-    if (actionIdentified < 0)
+    for (int i = 0; i < groupPhrases.size(); i++)
     {
-        switch (sentences.size())
-        {
-        case 0:
-        {
-        }
-        break;
-        case 1:
-        {
-        }
-        break;
-        default:
-        {
-        }
-        break;
-        }
+        firstSentenceOrder.push_back(i);
+        secondSentenceOrder.push_back(i);
     }
+
+    // bring correlate with source line to the first place
+    if (secondSentenceOrder.size() > 2)
+    {
+        secondSentenceOrder[0] = 2;
+        secondSentenceOrder[2] = 0;
+    }
+    // bring correlate with cpu to second place
+    if (secondSentenceOrder.size(> 16))
+    {
+        secondSentenceOrder[1] = 16;
+        secondSentenceOrder[16] = 1;
+    }
+    // bring correlate with data source to third place
+    if (secondSentenceOrder.size > 18)
+    {
+        secondSentenceOrder[2] = 18;
+        secondSentenceOrder[18] = 2;
+    }
+
+    if (sentences.size() >= 1)
+        orderIndicesByMatch(groupPhrases, sentences[0], &firstSentenceOrder);
+    if (sentences.size() >= 2)
+        orderIndicesByMatch(groupPhrases, sentences[1], &secondSentenceOrder);
 
     switch (actionIdentified)
     {
     case 0:
     {
+    select:
         // Select action
-        for (int i = 0; i < groups.size(); i++)
+        for (int i = 0; i < NUM_RECOMMENDATIONS; i++)
         {
-            SelectAction *sAction = new SelectAction(pcViz, dataSet, groups[i]);
+            SelectAction *sAction = new SelectAction(pcViz, dataSet, groups[firstSentenceOrder[i]]);
 
             if (numbers.size() >= 1)
             {
@@ -200,9 +214,7 @@ void ActionManager::generateActions()
             {
                 sAction->specifyG1Max(numbers[1]);
             }
-
-            if (sentences.size() >= 1)
-                sAction->heuristic = groupPhrases[i]->matchingLevenshtein(sentences[0]);
+            sAction->heuristic = i;
             actions.push_back(sAction);
         }
     }
@@ -223,18 +235,8 @@ void ActionManager::generateActions()
     break;
     case 2:
     {
-        // correlate action
-        for (int i = 0; i < groupPhrases.size(); i++)
-        {
-            firstSentenceOrder.push_back(i);
-            secondSentenceOrder.push_back(i);
-        }
-
-        if (sentences.size() >= 1)
-            orderIndicesByMatch(groupPhrases, sentences[0], &firstSentenceOrder);
-        if (sentences.size() >= 2)
-            orderIndicesByMatch(groupPhrases, sentences[1], &secondSentenceOrder);
-
+    // correlate action
+    correlate:
         for (int i = 0; i < 3; i++)
         {
             for (int j = 0; j < 3; j++)
@@ -306,18 +308,43 @@ void ActionManager::generateActions()
     break;
     default:
     {
-        for (int i = 0; i < groups.size(); i++)
+        if (sentences.size() == 1)
         {
-            actions.push_back(new SelectAction(pcViz, dataSet, groups[i]));
-            if (!sentences.empty())
-                actions[actions.size() - 1]->heuristic = groupPhrases[i]->matchingLevenshtein(sentences[0]);
+            if (numbers.size() != 0)
+                goto select;
 
-            if (pcViz->hasAxis(groups[i]->dataIndex) && !groups[i]->customLimits())
+            for (int i = 0; i < NUM_RECOMMENDATIONS; i++)
             {
-                actions.push_back(new HideAction(pcViz, dataSet, groups[i]));
-                if (!sentences.empty())
-                    actions[actions.size() - 1]->heuristic = groupPhrases[i]->matchingLevenshtein(sentences[0]);
+                if (pcViz->hasAxis(groups[firstSentenceOrder[i]]->dataIndex))
+                {
+                    if (groups[firstSentenceOrder[i]]->customLimits())
+                    {
+                        // axis available, named group most likely: offer named group selection
+                        actions.push_back(new SelectAction(pcViz, dataSet, groups[firstSentenceOrder[i]]));
+                    }
+                    else
+                    {
+                        // axis available, no further range specification: offer hide axis
+                        actions.push_back(new HideAction(pcViz, dataSet, groups[firstSentenceOrder[i]]));
+                    }
+                }
+                else
+                {
+                    if (!groups[firstSentenceOrder[i]]->customLimits())
+                    {
+                        actions.push_back(new ShowAction(pcViz, dataSet, groups[firstSentenceOrder[i]]));
+                    }
+                    else
+                    {
+                        actions.push_back(new SelectAction(pcViz, dataSet, groups[firstSentenceOrder[i]]));
+                    }
+                }
             }
+        }
+
+        if (sentences.size() == 2)
+        {
+            goto correlate;
         }
     }
     break;
@@ -406,6 +433,10 @@ void ActionManager::loadDataset(DataObject *dataSetIn)
         groupPhrases.push_back(new Phrase(dataSet->GetAttributeName(i)));
     }
 
+    AllGroup *allG = new AllGroup();
+    groups.push_back(allG);
+    groupPhrases.push_back(new Phrase("all"));
+
     // L1 cache miss group
     Group *l1MissGroup = new Group(18, "l1 cache miss");
     l1MissGroup->relative = false;
@@ -424,13 +455,33 @@ void ActionManager::loadDataset(DataObject *dataSetIn)
 
     // L1 data TLB miss
     int l1DataTLBMissAxis = findAxis("ibs_dc_l1_tlb_miss");
-    if(l1DataTLBMissAxis >= 0){
-        Group *l1TlbMissGroup = new Group(l1DataTLBMissAxis, "l1 tlb miss");
+    if (l1DataTLBMissAxis >= 0)
+    {
+        Group *l1TlbMissGroup = new Group(l1DataTLBMissAxis, "l1 TLB misses");
         l1TlbMissGroup->min = 1;
         groups.push_back(l1TlbMissGroup);
         groupPhrases.push_back(new Phrase("l1 tlb miss"));
     }
 
+    // L2 data TLB miss
+    int l2DataTLBMissAxis = findAxis("ibs_dc_l2_tlb_miss");
+    if (l2DataTLBMissAxis >= 0)
+    {
+        Group *l2TlbMissGroup = new Group(l2DataTLBMissAxis, "l2 TLB misses");
+        l2TlbMissGroup->min = 1;
+        groups.push_back(l2TlbMissGroup);
+        groupPhrases.push_back(new Phrase("l2 tlb miss"));
+    }
+
+    // mispredicted branches
+    int mispBrnAxis = findAxis("ibs_op_brn_misp");
+    if (mispBrnAxis >= 0)
+    {
+        Group *mispBrnGroup = new Group(mispBrnAxis, "Mispredicted Branches");
+        mispBrnGroup->min = 1;
+        groups.push_back(mispBrnGroup);
+        groupPhrases.push_back(new Phrase("mispredicted branches"));
+    }
 
     QStringList wordlist;
     for (VizAction *action : actions)
