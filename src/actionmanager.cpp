@@ -76,6 +76,9 @@ void ActionManager::generateActions()
     int actionIdentified = -1;
     int actionWordIndex = -1;
 
+    int mostLikelyAction = -1;
+    float smallestDistance = 1;
+
     for (int i = 0; i < split.size(); i++)
     {
         QString s = split[i];
@@ -84,6 +87,12 @@ void ActionManager::generateActions()
 
         auto minimumMatchPointer = std::min_element(actionMatches.begin(), actionMatches.end());
         int minIndex = std::distance(actionMatches.begin(), minimumMatchPointer);
+
+        if (actionMatches[minIndex] < smallestDistance)
+        {
+            mostLikelyAction = minIndex;
+            smallestDistance = actionMatches[minIndex];
+        }
 
         if (actionMatches[minIndex] <= .2)
         {
@@ -99,12 +108,13 @@ void ActionManager::generateActions()
     for (int i = 0; i < split.size(); i++)
     {
         QString s = split[i];
-        bool ok = true;
-        s.toInt(&ok);
-        if (ok)
+        bool isInt = true;
+        s.toInt(&isInt);
+        if (isInt)
         {
             numberPosition.push_back(sentences.size());
-            sentences.push_back(acc);
+            if (!acc.empty())
+                sentences.push_back(acc);
             acc = "";
             numbers.push_back(s.toInt());
         }
@@ -131,7 +141,7 @@ void ActionManager::generateActions()
 
     if (acc != "")
         sentences.push_back(acc);
-
+    // debug output of input split
     if (DEBUG_OUTPUT)
     {
         if (actionWordIndex < 0)
@@ -152,6 +162,26 @@ void ActionManager::generateActions()
     // int highestCompletionGroup = std::distance(groupCompletion.begin(), std::max_element(groupCompletion.begin(), groupCompletion.end()));
     vector<int> firstSentenceOrder;
     vector<int> secondSentenceOrder;
+
+    if (actionIdentified < 0)
+    {
+        switch (sentences.size())
+        {
+        case 0:
+        {
+        }
+        break;
+        case 1:
+        {
+        }
+        break;
+        default:
+        {
+        }
+        break;
+        }
+    }
+
     switch (actionIdentified)
     {
     case 0:
@@ -194,9 +224,6 @@ void ActionManager::generateActions()
     case 2:
     {
         // correlate action
-        if (DEBUG_OUTPUT)
-            std::cerr << "writing correlation action\n";
-
         for (int i = 0; i < groupPhrases.size(); i++)
         {
             firstSentenceOrder.push_back(i);
@@ -324,10 +351,10 @@ void ActionManager::textChanged(QString text)
 
 void ActionManager::returnPressed()
 {
-    VizAction *action = findActionByTitle(inputText.toStdString());
-    if (action != nullptr)
+
+    if (!actions.empty())
     {
-        action->perform();
+        actions[0]->perform();
     }
     searchbar->clear();
 }
@@ -343,6 +370,16 @@ void ActionManager::completerActivated(QString text)
     QStringList list;
     QStringListModel *model = new QStringListModel(list);
     searchbar->completer()->setModel(model);
+}
+
+int ActionManager::findAxis(string axisName)
+{
+    for (int i = 0; i < dataSet->getNumberOfAttributes(); i++)
+    {
+        if (dataSet->GetAttributeName(i) == axisName)
+            return i;
+    }
+    return -1;
 }
 
 void ActionManager::loadDataset(DataObject *dataSetIn)
@@ -377,7 +414,23 @@ void ActionManager::loadDataset(DataObject *dataSetIn)
     groups.push_back(l1MissGroup);
     groupPhrases.push_back(new Phrase("l1 cache miss"));
 
-    sortActions();
+    // L2 cache miss group
+    Group *l2MissGrooup = new Group(18, "l2 cache miss");
+    l2MissGrooup->relative = false;
+    l2MissGrooup->min = 3;
+    l2MissGrooup->max = pcViz->dataMax(18);
+    groups.push_back(l2MissGrooup);
+    groupPhrases.push_back(new Phrase("l2 cache miss"));
+
+    // L1 data TLB miss
+    int l1DataTLBMissAxis = findAxis("ibs_dc_l1_tlb_miss");
+    if(l1DataTLBMissAxis >= 0){
+        Group *l1TlbMissGroup = new Group(l1DataTLBMissAxis, "l1 tlb miss");
+        l1TlbMissGroup->min = 1;
+        groups.push_back(l1TlbMissGroup);
+        groupPhrases.push_back(new Phrase("l1 tlb miss"));
+    }
+
 
     QStringList wordlist;
     for (VizAction *action : actions)

@@ -27,7 +27,7 @@ public:
     {
         str_tolower(&query);
         // std::cerr << "matching \"" << query << "\" to \"" << word << "\" : " << levenshtein_distance(word, query, 1, .3, 2.) << std::endl;
-        return levenshtein_distance(word, query, 1, .3, 2.) / word.length();
+        return levenshtein_distance(query, word, .3, 1.5, 1.8) / word.length();
     }
 
     float matchMissingLetters(string query)
@@ -113,15 +113,7 @@ public:
 protected:
     DataObject *dataSet;
     PCVizWidget *pcViz;
-    int ibsAxisAvailable(string axisName)
-    {
-        for (int i = 0; i < dataSet->getNumberOfAttributes(); i++)
-        {
-            if (dataSet->GetAttributeName(i) == axisName)
-                return i;
-        }
-        return -1;
-    }
+    
 };
 
 class HelpAction : public VizAction{
@@ -146,12 +138,17 @@ struct Group
     Group(int index, string nName) : dataIndex(index), name(nName) {}
     bool customLimits() { return max != 1 || min != 0 || !relative; }
     void select(PCVizWidget * pcViz, int customMin, int customMax){
+
+        if(DEBUG_OUTPUT){
+            std::cerr << "selecting group " + name + " limits " << min << " : " << max << " input limits: " << customMin << " : " << customMax << std::endl; 
+        }
+
         if(customLimits()){
             if(relative)pcViz->selectValRelativeRange(dataIndex, min, max);
             else pcViz->selectValRange(dataIndex, min, max);
         }else{
             if(customMin >= 0 && customMax >= 0){
-                pcViz->selectValRange(dataIndex, min, max);
+                pcViz->selectValRange(dataIndex, customMin, customMax);
             }else{
                 if(customMin >= 0){
                     pcViz->selectValRange(dataIndex, customMin, pcViz->dataMax(dataIndex));
@@ -221,8 +218,10 @@ public:
 
     string title() override
     {
-        if(selectMax < 0)return "Select " + g1->name;
-        return "Select " + g1->name + " minimum: " + std::to_string(selectMin) + " maximum: " + std::to_string(selectMax);
+        string output = "Select " + g1->name;
+        if(selectMin >= 0) output = output + " min: " + std::to_string(selectMin);
+        if(selectMax >= 0) output = output + " max: " + std::to_string(selectMax);
+        return output;
     }
 
     private:
@@ -378,7 +377,7 @@ public slots:
 private:
     void sortActions();
     void generateActions();
-
+    int findAxis(string name);
     VizAction *findActionByTitle(string title);
 
 private:
