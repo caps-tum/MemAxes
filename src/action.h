@@ -26,7 +26,7 @@ public:
     float matchingLevenshtein(string query)
     {
         str_tolower(&query);
-        // std::cerr << "matching \"" << query << "\" to \"" << word << "\" : " << levenshtein_distance(word, query, 1, .3, 2.) << std::endl;
+        //std::cerr << "matching \"" << query << "\" to \"" << word << "\" : " << levenshtein_distance(query, word, .2, 1.5, 1.8) << std::endl;
         return levenshtein_distance(query, word, .3, 1.5, 1.8) / word.length();
     }
 
@@ -76,24 +76,61 @@ private:
         for (int i = 1; i < a.length() + 1; i++)
             cache[i * row_length] = i;
 
-        for (int j = 1; j < row_length; j++)
+        for (int i = 1; i < a.length() + 1; i++)
         {
-            for (int i = 1; i < a.length() + 1; i++)
+            bool fromAbove = false;
+
+            for (int j = 1; j < row_length; j++)
             {
                 float this_sub_cost = substitution_cost;
-                if (a.at(i - 1) == b.at(j - 1))
+                if (a.at(i - 1) == b.at(j - 1)){
                     this_sub_cost = 0;
+                    fromAbove = true;
+                }
 
-                float nValue = std::min(cache[(i - 1) * row_length + j] + deletion_cost, cache[i * row_length + (j - 1)] + insertion_cost);
-                nValue = std::min(nValue, cache[(i - 1) * row_length + (j - 1)] + this_sub_cost);
+                float this_insertion_cost = insertion_cost;
+                /*
+                if ((i == a.length() && fromAbove))
+                {
+                    this_insertion_cost /= 100;
+                }
+                */
+                float delVal = cache[(i - 1) * row_length + j] + deletion_cost;
+                float insVal = cache[i * row_length + (j - 1)] + this_insertion_cost;
+                float subVal = cache[(i - 1) * row_length + (j - 1)] + this_sub_cost;
+                float nValue = 9999;
+                nValue = insVal;
+                if(delVal < nValue){
+                    fromAbove = true;
+                    nValue = delVal;
+                }
 
+                if(subVal < nValue){
+                    nValue = subVal;
+                    fromAbove = true;
+                }
                 cache[i * row_length + j] = nValue;
             }
         }
+        //Debug code to output matrix
+        /*
+        if (b == "correlate")
+        {
+
+            for (int i = 0; i < a.length() + 1; i++)
+            {
+                for (int j = 0; j < row_length; j++)
+                {
+                    std::cerr << cache[i * row_length + j] << " ";
+                }
+                std::cerr << std::endl;
+            }
+        }*/
         return cache[row_length * a.length() + b.length()];
     }
 
-    void str_tolower(string *s)
+    void
+    str_tolower(string *s)
     {
         for (int i = 0; i < s->length(); i++)
             s->at(i) = tolower(s->at(i));
@@ -113,19 +150,20 @@ public:
 protected:
     DataObject *dataSet;
     PCVizWidget *pcViz;
-    
 };
 
-class HelpAction : public VizAction{
+class HelpAction : public VizAction
+{
 public:
-    HelpAction(PCVizWidget * pcVizIn, DataObject * dataSetIn) : VizAction(pcVizIn, dataSetIn){}
-    bool applicable() override {return true;};
-    void perform() override {
+    HelpAction(PCVizWidget *pcVizIn, DataObject *dataSetIn) : VizAction(pcVizIn, dataSetIn) {}
+    bool applicable() override { return true; };
+    void perform() override
+    {
         QMessageBox help;
         help.setText("MemAxes accepted commands:\nSelect: select a value range\nHide: hide an axis in the parallel coordinates view\nCorrelate: move two axes in the parallel coordinates next to one another\nHelp: display this message");
         help.exec();
     }
-    string title() override {return "Help";}
+    string title() override { return "Help"; }
 };
 
 struct Group
@@ -137,24 +175,36 @@ struct Group
     string name;
     Group(int index, string nName) : dataIndex(index), name(nName) {}
     bool customLimits() { return max != 1 || min != 0 || !relative; }
-    virtual void select(PCVizWidget * pcViz, int customMin, int customMax){
+    virtual void select(PCVizWidget *pcViz, int customMin, int customMax)
+    {
 
-        if(DEBUG_OUTPUT){
-            std::cerr << "selecting group " + name + " limits " << min << " : " << max << " input limits: " << customMin << " : " << customMax << std::endl; 
+        if (DEBUG_OUTPUT)
+        {
+            std::cerr << "selecting group " + name + " limits " << min << " : " << max << " input limits: " << customMin << " : " << customMax << std::endl;
         }
 
-        if(customLimits()){
-            if(relative)pcViz->selectValRelativeRange(dataIndex, min, max);
-            else pcViz->selectValRange(dataIndex, min, max);
-        }else{
-            if(customMin >= 0 && customMax >= 0){
+        if (customLimits())
+        {
+            if (relative)
+                pcViz->selectValRelativeRange(dataIndex, min, max);
+            else
+                pcViz->selectValRange(dataIndex, min, max);
+        }
+        else
+        {
+            if (customMin >= 0 && customMax >= 0)
+            {
                 pcViz->selectValRange(dataIndex, customMin, customMax);
-            }else{
-                if(customMin >= 0){
+            }
+            else
+            {
+                if (customMin >= 0)
+                {
                     pcViz->selectValRange(dataIndex, customMin, pcViz->dataMax(dataIndex));
                 }
 
-                if(customMax >= 0){
+                if (customMax >= 0)
+                {
                     pcViz->selectValRange(dataIndex, pcViz->dataMin(dataIndex), customMax);
                 }
             }
@@ -162,15 +212,17 @@ struct Group
     }
 };
 
-struct AllGroup : Group{
-    AllGroup() : Group(0, "All"){}
-    bool customLimits(){
+struct AllGroup : Group
+{
+    AllGroup() : Group(0, "All") {}
+    bool customLimits()
+    {
         return false;
     }
-    void select(PCVizWidget * pcViz, int customMin, int customMax) override{
+    void select(PCVizWidget *pcViz, int customMin, int customMax) override
+    {
         pcViz->selectAll();
     }
-
 };
 
 class ProceduralAction : public VizAction
@@ -178,7 +230,6 @@ class ProceduralAction : public VizAction
 public:
     ProceduralAction(PCVizWidget *pcVizIn, DataObject *dataSetIn) : VizAction(pcVizIn, dataSetIn)
     {
-
     }
 
     bool applicable() override
@@ -186,17 +237,11 @@ public:
         return true;
     }
 
-    
-
-    bool customGroup(){return g1->customLimits();};
-
+    bool customGroup() { return g1->customLimits(); };
 
 protected:
     Group *g1;
     Group *g2;
-    
-
-    
 };
 
 class SelectAction : public ProceduralAction
@@ -219,10 +264,10 @@ public:
         selectMax = max;
     }
 
-    
     void perform() override
     {
-        if(DEBUG_OUTPUT)std::cerr << "selecting " << g1->name << " minimum: " << selectMin << " maximum " << selectMax << std::endl;
+        if (DEBUG_OUTPUT)
+            std::cerr << "selecting " << g1->name << " minimum: " << selectMin << " maximum " << selectMax << std::endl;
         pcViz->addAxis(g1->dataIndex);
         g1->select(pcViz, selectMin, selectMax);
     }
@@ -230,12 +275,14 @@ public:
     string title() override
     {
         string output = "Select " + g1->name;
-        if(selectMin >= 0) output = output + " min: " + std::to_string(selectMin);
-        if(selectMax >= 0) output = output + " max: " + std::to_string(selectMax);
+        if (selectMin >= 0)
+            output = output + " min: " + std::to_string(selectMin);
+        if (selectMax >= 0)
+            output = output + " max: " + std::to_string(selectMax);
         return output;
     }
 
-    private:
+private:
     int selectMin;
     int selectMax;
 };
@@ -250,7 +297,8 @@ public:
 
     void perform()
     {
-        if(pcViz->hasAxis(g1->dataIndex))pcViz->selectValRelativeRange(g1->dataIndex, 0, 1);
+        if (pcViz->hasAxis(g1->dataIndex))
+            pcViz->selectValRelativeRange(g1->dataIndex, 0, 1);
         pcViz->removeAxis(g1->dataIndex);
     }
 
@@ -294,10 +342,10 @@ public:
         selectAbsMax2 = max;
     }
 
-    
     void perform() override
     {
-        if(DEBUG_OUTPUT)std::cerr << "correlating " << g1->name << " minimum: " << selectAbsMin1 << " maximum " << selectAbsMax1 << " with " << g2->name << " minimum: "<< selectAbsMin2 << " maximum: " << selectAbsMax2 << std::endl;
+        if (DEBUG_OUTPUT)
+            std::cerr << "correlating " << g1->name << " minimum: " << selectAbsMin1 << " maximum " << selectAbsMax1 << " with " << g2->name << " minimum: " << selectAbsMin2 << " maximum: " << selectAbsMax2 << std::endl;
         pcViz->addAxis(g1->dataIndex);
         if (g1->customLimits())
         {
@@ -305,11 +353,17 @@ public:
                 pcViz->selectValRange(g1->dataIndex, g1->min, g1->max);
             else
                 pcViz->selectValRelativeRange(g1->dataIndex, g1->min, g1->max);
-        }else{
-            if(selectAbsMax1 >= 0 && selectAbsMin1 >= 0){
+        }
+        else
+        {
+            if (selectAbsMax1 >= 0 && selectAbsMin1 >= 0)
+            {
                 pcViz->selectValRange(g1->dataIndex, selectAbsMin1, selectAbsMax1);
-            }else{
-                if(selectAbsMin1 >= 0){
+            }
+            else
+            {
+                if (selectAbsMin1 >= 0)
+                {
                     pcViz->selectValRange(g1->dataIndex, selectAbsMin1, pcViz->dataMax(g1->dataIndex));
                 }
             }
@@ -322,11 +376,17 @@ public:
                 pcViz->selectValRange(g2->dataIndex, g2->min, g2->max);
             else
                 pcViz->selectValRelativeRange(g2->dataIndex, g2->min, g2->max);
-        }else{
-            if(selectAbsMax2 >= 0 && selectAbsMin2 >= 0){
+        }
+        else
+        {
+            if (selectAbsMax2 >= 0 && selectAbsMin2 >= 0)
+            {
                 pcViz->selectValRange(g2->dataIndex, selectAbsMin2, selectAbsMax2);
-            }else{
-                if(selectAbsMin2 >= 0){
+            }
+            else
+            {
+                if (selectAbsMin2 >= 0)
+                {
                     pcViz->selectValRange(g2->dataIndex, selectAbsMin2, pcViz->dataMax(g2->dataIndex));
                 }
             }
@@ -338,22 +398,28 @@ public:
     string title() override
     {
         string output = "Correlate " + g1->name;
-        if(selectAbsMin1 >= 0)output = output + " min: " + std::to_string(selectAbsMin1);
-        if(selectAbsMax1 >= 0)output = output + " max: " + std::to_string(selectAbsMax1);
+        if (selectAbsMin1 >= 0)
+            output = output + " min: " + std::to_string(selectAbsMin1);
+        if (selectAbsMax1 >= 0)
+            output = output + " max: " + std::to_string(selectAbsMax1);
         output = output + " with " + g2->name;
-        if(selectAbsMin2 >= 0)output = output + " min: " + std::to_string(selectAbsMin2);
-        if(selectAbsMax2 >= 0)output = output + " max: " + std::to_string(selectAbsMax2); 
+        if (selectAbsMin2 >= 0)
+            output = output + " min: " + std::to_string(selectAbsMin2);
+        if (selectAbsMax2 >= 0)
+            output = output + " max: " + std::to_string(selectAbsMax2);
         return output;
     }
-    private:
+
+private:
     int selectAbsMin1;
     int selectAbsMax1;
     int selectAbsMin2;
     int selectAbsMax2;
 };
 
-class ShowAction : public ProceduralAction{
-    public:
+class ShowAction : public ProceduralAction
+{
+public:
     ShowAction(PCVizWidget *pcVizIn, DataObject *dataSetIn, Group *g1) : ProceduralAction(pcVizIn, dataSetIn)
     {
         this->g1 = g1;
@@ -361,7 +427,7 @@ class ShowAction : public ProceduralAction{
 
     void perform()
     {
-        
+
         pcViz->addAxis(g1->dataIndex);
     }
 
@@ -375,7 +441,7 @@ class ActionManager : public VizWidget
 {
     Q_OBJECT
 public:
-    ActionManager(DataObject *dataSetIn, PCVizWidget *pcViz, QLineEdit *searchbarNew);
+    ActionManager(PCVizWidget *pcViz, QLineEdit *searchbarNew);
 
     void loadDataset(DataObject *dataSetIn);
 

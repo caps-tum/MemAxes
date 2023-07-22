@@ -68,6 +68,7 @@ public:
     float dataMax(int dataIndex);
     float dataMin(int dataIndex);
     bool hasAxis(int dataIndex);
+    int populatedBins(int dataIndex);
 
     void selectAll();
 

@@ -8,9 +8,9 @@ bool orderByHeuristic(VizAction *a, VizAction *b)
     return a->heuristic < b->heuristic;
 }
 
-ActionManager::ActionManager(DataObject *dataSetIn, PCVizWidget *pcViz, QLineEdit *searchbarNew)
+ActionManager::ActionManager(PCVizWidget *pcViz, QLineEdit *searchbarNew)
 {
-    dataSet = dataSetIn;
+    dataSet = nullptr;
     this->pcViz = pcViz;
     this->searchbar = searchbarNew;
     searchbar->setPlaceholderText("type in action command");
@@ -55,6 +55,8 @@ void ActionManager::sortActions()
 
 void ActionManager::generateActions()
 {
+    if (dataSet == nullptr)
+        return;
 
     while (!actions.empty())
     {
@@ -96,7 +98,7 @@ void ActionManager::generateActions()
             smallestDistance = actionMatches[minIndex];
         }
 
-        if (actionMatches[minIndex] <= .2)
+        if (actionMatches[minIndex] <= .2 && s.length() >= 4)
         {
             if (actionMatches[minIndex] < maxActionDistance)
             {
@@ -315,39 +317,31 @@ void ActionManager::generateActions()
 
             for (int i = 0; i < NUM_RECOMMENDATIONS; i++)
             {
-                if (pcViz->hasAxis(groups[firstSentenceOrder[i]]->dataIndex))
+
+                if (groups[firstSentenceOrder[i]]->customLimits())
                 {
-                    if (groups[firstSentenceOrder[i]]->customLimits())
-                    {
-                        // axis available, named group most likely: offer named group selection
-                        actions.push_back(new SelectAction(pcViz, dataSet, groups[firstSentenceOrder[i]]));
-                    }
-                    else
+                    // axis available, named group most likely: offer named group selection
+                    actions.push_back(new SelectAction(pcViz, dataSet, groups[firstSentenceOrder[i]]));
+                }
+                else
+                {
+                    if (pcViz->hasAxis(groups[firstSentenceOrder[i]]->dataIndex))
                     {
                         // axis available, no further range specification: offer hide axis
                         actions.push_back(new HideAction(pcViz, dataSet, groups[firstSentenceOrder[i]]));
                     }
-                }
-                else
-                {
-                    if (!groups[firstSentenceOrder[i]]->customLimits())
-                    {
-                        actions.push_back(new ShowAction(pcViz, dataSet, groups[firstSentenceOrder[i]]));
-                    }
                     else
                     {
-                        actions.push_back(new SelectAction(pcViz, dataSet, groups[firstSentenceOrder[i]]));
+                        actions.push_back(new ShowAction(pcViz, dataSet, groups[firstSentenceOrder[i]]));
                     }
                 }
             }
         }
-
         if (sentences.size() == 2)
         {
             goto correlate;
         }
     }
-    break;
     }
 }
 
@@ -431,6 +425,54 @@ void ActionManager::loadDataset(DataObject *dataSetIn)
     {
         groups.push_back(new Group(i, dataSet->GetAttributeName(i)));
         groupPhrases.push_back(new Phrase(dataSet->GetAttributeName(i)));
+    }
+
+    //create top + bottom groups
+    for(int i = 0; i < dataSet->getNumberOfAttributes(); i++){
+        if(DEBUG_OUTPUT){
+            std::cerr << "axis " << groups[i]->name << " with dataMax " << pcViz->dataMax(i) << " and " << pcViz->populatedBins(i) << " populated bins\n";
+        }
+        if(pcViz->dataMax(i) == 1 && pcViz->populatedBins(i) <= 2){
+            //flag
+            string setName = groups[i]->name + " flag set";
+            Group * set = new Group(i, setName);
+            set->min = 1;
+            groups.push_back(set);
+            groupPhrases.push_back(new Phrase(setName));
+
+            string notName = groups[i]->name + " flag not set";
+            Group * notGroup = new Group(i, notName);
+            notGroup->max = 0;
+            groups.push_back(notGroup);
+            groupPhrases.push_back(new Phrase(notName));
+
+        }else{
+            //axis with several different values
+            string midName = groups[i]->name + " mid values";
+            Group * mid = new Group(i, midName);
+            mid->min = .25;
+            mid->max = .75;
+            groups.push_back(mid);
+            groupPhrases.push_back(new Phrase(midName));
+
+            string lowName = groups[i]->name + " low values";
+            Group * low = new Group(i, lowName);
+            low->max = .25;
+            groups.push_back(low);
+            groupPhrases.push_back(new Phrase(lowName));
+
+            string highName = groups[i]->name + " high values";
+            Group * high = new Group(i, highName);
+            high->min = .75;
+            groups.push_back(high);
+            groupPhrases.push_back(new Phrase (highName));
+        }
+    }
+
+    if(DEBUG_OUTPUT){
+        for(Group* g : groups){
+            std::cerr << g->name << "\n";
+        }
     }
 
     AllGroup *allG = new AllGroup();

@@ -187,7 +187,7 @@ void PCVizWidget::processData()
 
     processed = true;
 
-    needsCalcMinMaxes = true;
+    calcMinMaxes();
     needsCalcHistBins = true;
     needsRecalcLines = true;
 }
@@ -1584,4 +1584,18 @@ void PCVizWidget::selectAll(){
     needsRecalcLines = true;
     needsCalcHistBins = true;
     needsRepaint = true;
+}
+
+int PCVizWidget::populatedBins(int dataIndex){
+    int acc = 0;
+    vector<bool> populated;
+    populated.resize(numHistBins, false);
+    for(int i = 0; i < dataSet->getNumberOfSamples(); i++){
+        int bin = binMatrix[dataIndex * dataSet->getNumberOfSamples() + i];
+        if(!populated[bin]){
+            populated[bin] = true;
+            acc++;
+        }
+    }
+    return acc;
 }

@@ -207,7 +207,7 @@ MainWindow::MainWindow(QWidget *parent) :
         connect(this, SIGNAL(visibilityChangedSig()), vizWidgets[i], SLOT(visibilityChangedSlot()));
     }
 
-    actionManager = new ActionManager(dataSet, pcViz, ui->searchbar);
+    actionManager = new ActionManager(pcViz, ui->searchbar);
     vizWidgets.push_back(actionManager);
     connect(ui->searchbar, SIGNAL(returnPressed()), actionManager, SLOT(returnPressed()));
     connect(ui->searchbar, SIGNAL(textEdited(QString)), actionManager, SLOT(textEdited(QString)));
