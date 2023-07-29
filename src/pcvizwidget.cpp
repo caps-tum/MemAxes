@@ -72,11 +72,6 @@ PCVizWidget::PCVizWidget(QWidget *parent)
     colorMap.push_back(QColor(255, 255, 153));
     colorMap.push_back(QColor(177, 89, 40));
 
-    QColor colStart = QColor(40, 255, 5);
-    QColor colEnd = QColor(255, 0, 0);
-
-    lineColorMap = gradientColorMap(colStart, colEnd, 256);
-
     needsCalcHistBins = true;
     needsCalcMinMaxes = true;
     needsProcessData = true;
@@ -109,6 +104,8 @@ PCVizWidget::PCVizWidget(QWidget *parent)
     highlightLifetime = 0;
 
     hardwareTopoSamples = nullptr;
+
+    sharedMinMax = true;
 
     // Event Filters
     this->installEventFilter(this);
@@ -893,8 +890,11 @@ void PCVizWidget::recalcLines(int dirtyAxis)
         }
 
         // calculation of transformation parameters
-        float scaleTop[numHistBins * numHistBins];
-        float scaleBottom[numHistBins * numHistBins];
+        float scaleTopSelected[numHistBins * numHistBins];
+        float scaleBottomSelected[numHistBins * numHistBins];
+
+        float scaleTopUnselected[numHistBins * numHistBins];
+        float scaleBottomUnselected[numHistBins * numHistBins];
         switch (lineStyle)
         {
         case allBins:
@@ -913,8 +913,8 @@ void PCVizWidget::recalcLines(int dirtyAxis)
 
             for (int k = 0; k < numHistBins * numHistBins; k++)
             {
-                scaleTop[k] = allCorrelationsMax;
-                scaleBottom[k] = allCorrelationsMin;
+                scaleTopSelected[k] = allCorrelationsMax;
+                scaleBottomSelected[k] = allCorrelationsMin;
             }
         }
         break;
@@ -938,8 +938,8 @@ void PCVizWidget::recalcLines(int dirtyAxis)
                     corMin = 0;
                 float fillMax = corMax;
                 float fillMin = corMin;
-                std::fill_n(scaleTop + numHistBins * i, numHistBins, corMax);
-                std::fill_n(scaleBottom + numHistBins * i, numHistBins, corMin);
+                std::fill_n(scaleTopSelected + numHistBins * i, numHistBins, corMax);
+                std::fill_n(scaleBottomSelected + numHistBins * i, numHistBins, corMin);
             }
         }
         break;
@@ -964,8 +964,8 @@ void PCVizWidget::recalcLines(int dirtyAxis)
 
                 for (int j = 0; j < numHistBins; j++)
                 {
-                    scaleTop[j * numHistBins + i] = corMax;
-                    scaleBottom[j * numHistBins + i] = corMin;
+                    scaleTopSelected[j * numHistBins + i] = corMax;
+                    scaleBottomSelected[j * numHistBins + i] = corMin;
                 }
 
                 if (corMin == corMax)
@@ -996,7 +996,7 @@ void PCVizWidget::recalcLines(int dirtyAxis)
                 if (correlationSelected[out * numHistBins + into] != 0)
                 {
 
-                    float progress = scale(correlationSelected[out * numHistBins + into], scaleBottom[out * numHistBins + into], scaleTop[out * numHistBins + into], 0, 1);
+                    float progress = scale(correlationSelected[out * numHistBins + into], scaleBottomSelected[out * numHistBins + into], scaleTopSelected[out * numHistBins + into], 0, 1);
                     /*
                     if (axis == 14)
                         std::cerr << "bottom: " << scaleBottom[out * numHistBins + into] << " top: " << scaleTop[out * numHistBins + into] << " correlation strength: " << correlation[out * numHistBins + into] << " progress: " << progress << std::endl;
@@ -1006,6 +1006,7 @@ void PCVizWidget::recalcLines(int dirtyAxis)
 
                 if (correlationUnselected[out * numHistBins + into] != 0)
                 {
+                    float progress = scale(correlationUnselected[out * numHistBins + into], scaleBottomUnselected[out * numHistBins + into], scaleTopUnselected[out * numHistBins + into], 0, 1);
                     ulines.push_back(make_tuple(1, aVal, bVal, correlationUnselected[out * numHistBins + into]));
                 }
             }
@@ -1139,9 +1140,9 @@ void PCVizWidget::recalcLines(int dirtyAxis)
             verts.push_back(secondPos);
             verts.push_back(secondHeight + offset);
 
-            int h = 64.f * progress + 128.f;
+            int h = -20.f * progress + 20.f;
             int s = 255;
-            int l = -217.f * progress + 230.f;
+            int l = -150.f * progress + 220.f;
 
             // l = progress;
 
@@ -1703,4 +1704,11 @@ int PCVizWidget::populatedBins(int dataIndex)
         }
     }
     return acc;
+}
+
+void PCVizWidget::toggleSharedMinMax(){
+    sharedMinMax = !sharedMinMax;
+    std::cerr << "toggled shared min max\n";
+    needsRecalcLines = true;
+    needsRepaint = true;
 }

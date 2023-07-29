@@ -88,6 +88,7 @@ public slots:
     void setSelOpacity(int val);
     void setUnselOpacity(int val);
     void setShowHistograms(bool checked);
+    void toggleSharedMinMax();
     void resetSelection();
     void beginAnimation();
     void endAnimation();
@@ -150,7 +151,6 @@ private:
 
     QRectF plotBBox;
     ColorMap colorMap;
-    ColorMap lineColorMap;
 
     QVector<QVector<qreal> > histVals;
     float* histValMatrix;
@@ -204,6 +204,7 @@ private:
 
     //line coloring
     LineColorMode lineStyle;
+    bool sharedMinMax;
 
     QRect highlightRect;
     float highlightLifetime;

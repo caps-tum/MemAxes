@@ -179,6 +179,7 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(parallelCoordinatesViz, SIGNAL(highlightLines(vector<tuple<int, float>>)), codeEditor, SLOT(highlightLines(vector<tuple<int, float>>)));
     connect(ui->numHistBinsSlider, SIGNAL(valueChanged(int)), parallelCoordinatesViz, SLOT(setNumHistBins(int)));
     connect(ui->jumpingCheckbox, SIGNAL(clicked()), parallelCoordinatesViz, SLOT(toggleCodeJumping()));
+    connect(ui->SharedMinMax, SIGNAL(clicked()), parallelCoordinatesViz, SLOT(toggleSharedMinMax()));
     connect(memViz, SIGNAL(hoverHardwareTopoSamples(vector<int> *)), parallelCoordinatesViz, SLOT(setHardwareTopologySampleSet(vector<int>*)));
 
     vizWidgets.push_back(parallelCoordinatesViz);

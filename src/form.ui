@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1466</width>
-    <height>756</height>
+    <height>769</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -518,6 +518,16 @@
                 </widget>
                </item>
                <item>
+                <widget class="QCheckBox" name="SharedMinMax">
+                 <property name="text">
+                  <string>Shared Min/Max</string>
+                 </property>
+                 <property name="checked">
+                  <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
+               <item>
                 <widget class="QRadioButton" name="firstAxis">
                  <property name="text">
                   <string>first axis</string>
@@ -538,6 +548,13 @@
                  </property>
                  <property name="checked">
                   <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLabel" name="label_3">
+                 <property name="text">
+                  <string>Number of Bins</string>
                  </property>
                 </widget>
                </item>
