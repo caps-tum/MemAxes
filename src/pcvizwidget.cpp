@@ -808,15 +808,15 @@ void PCVizWidget::recalcLines(int dirtyAxis)
 {
 
     // std::cerr << "recalc with filter "<<filterLine<<std::endl;
-    std::cerr << "entering recalcLines\n";
+    // std::cerr << "entering recalcLines\n";
     if (SKIP_GL)
         return;
 
-    if (!processed){
-        std::cerr << "exiting recalcLines: Data not processed\n";
+    if (!processed)
+    {
+        // std::cerr << "exiting recalcLines: Data not processed\n";
         return;
     }
-        
 
     verts.clear();
     colors.clear();
@@ -827,8 +827,6 @@ void PCVizWidget::recalcLines(int dirtyAxis)
     QVector2D a, b;
     int i, axis, nextAxis; //, elem;
     // QVector<double>::Iterator p;
-
-
 
     int *condAxisStart = binMatrix;
     int condAxis = 0;
@@ -868,21 +866,29 @@ void PCVizWidget::recalcLines(int dirtyAxis)
                 {
                     // std::cerr << "attempting to access element " << (axisStart[s] * numHistBins + axisStart[s]) << std::endl;
                     correlationSelected[axisStart[s] * numHistBins + nextAxisStart[s]]++;
-                }else{
+                }
+                else
+                {
                     correlationUnselected[axisStart[s] * numHistBins + nextAxisStart[s]]++;
                 }
                 // if(axis == 14)std::cerr << "value at 0 to 0: " << correlation[0] << " visibility : " << dataSet->selected(s) << "\n";
             }
-        }else{
-            for(int s : *hardwareTopoSamples){
-                if ((binMouseOver < 0 || condAxisStart[s] == binMouseOver) && (filterLine < 0 || filterLine == dataSet->GetSampleAttribByIndex(s, 2)) && !(dataSet->selectionDefined() && !dataSet->selected(s)))
+        }
+        else
+        {
+            int hardwareTopoSamplesIndex = 0;
+            for (int s = 0; s < dataSet->getNumberOfSamples(); s++)
+            {
+                if (hardwareTopoSamplesIndex < hardwareTopoSamples->size() && hardwareTopoSamples->at(hardwareTopoSamplesIndex) == s)
                 {
                     // std::cerr << "attempting to access element " << (axisStart[s] * numHistBins + axisStart[s]) << std::endl;
                     correlationSelected[axisStart[s] * numHistBins + nextAxisStart[s]]++;
-                }else{
+                    hardwareTopoSamplesIndex++;
+                }
+                else
+                {
                     correlationUnselected[axisStart[s] * numHistBins + nextAxisStart[s]]++;
                 }
-
             }
         }
 
@@ -975,6 +981,7 @@ void PCVizWidget::recalcLines(int dirtyAxis)
 
         // line tuple: progress, y1, y2, total strength
         vector<tuple<float, float, float, int>> lines;
+        vector<tuple<float, float, float, int>> ulines;
 
         for (int out = 0; out < numHistBins; out++)
         {
@@ -984,9 +991,10 @@ void PCVizWidget::recalcLines(int dirtyAxis)
 
             for (int into = 0; into < numHistBins; into++)
             {
+                float bVal = (float)into / (float)numHistBins + .5 / numHistBins;
+
                 if (correlationSelected[out * numHistBins + into] != 0)
                 {
-                    float bVal = (float)into / (float)numHistBins + .5 / numHistBins;
 
                     float progress = scale(correlationSelected[out * numHistBins + into], scaleBottom[out * numHistBins + into], scaleTop[out * numHistBins + into], 0, 1);
                     /*
@@ -995,10 +1003,100 @@ void PCVizWidget::recalcLines(int dirtyAxis)
                     */
                     lines.push_back(make_tuple(progress, aVal, bVal, correlationSelected[out * numHistBins + into]));
                 }
+
+                if (correlationUnselected[out * numHistBins + into] != 0)
+                {
+                    ulines.push_back(make_tuple(1, aVal, bVal, correlationUnselected[out * numHistBins + into]));
+                }
             }
         }
 
         std::sort(lines.begin(), lines.end(), orderByFirst);
+
+        for (tuple<float, float, float, int> line : ulines)
+        {
+            float progress = std::get<0>(line);
+
+            float thickness = ((((float)std::get<3>(line) / (float)dataSet->getNumberOfSamples())) * (MAXIMUM_LINE_THICKNESS - MINIMUM_LINE_THICKNESS) + MINIMUM_LINE_THICKNESS) * glViewPortHeight / 2;
+
+            float firstPos = axisPos * glViewportWidth;
+            float secondPos = nextAxisPos * glViewportWidth;
+
+            float firstHeight = std::get<1>(line) * glViewPortHeight;
+            float secondHeight = std::get<2>(line) * glViewPortHeight;
+
+            float xDist = secondPos - firstPos;
+            float yDist = std::abs(firstHeight - secondHeight);
+
+            float hypothenuseSquared = xDist * xDist + yDist * yDist;
+            float hypothenuse = std::sqrt(hypothenuseSquared);
+            float inverseSin = hypothenuse / xDist;
+
+            float offset = thickness * inverseSin;
+
+            // first triangle
+            verts.push_back(firstPos);
+            verts.push_back(firstHeight - offset);
+
+            verts.push_back(secondPos);
+            verts.push_back(secondHeight - offset);
+
+            verts.push_back(secondPos);
+            verts.push_back(secondHeight + offset);
+
+            // second triangle
+            verts.push_back(firstPos);
+            verts.push_back(firstHeight + offset);
+
+            verts.push_back(firstPos);
+            verts.push_back(firstHeight - offset);
+
+            verts.push_back(secondPos);
+            verts.push_back(secondHeight + offset);
+
+            int h = 0;
+            int s = 0;
+            int l = 150;
+
+            // l = progress;
+
+            // if(axis = axisMouseOver)std::cerr<< "hue: " << h << "\n";
+
+            QColor lineCol = QColor(0, 0, 0);
+            lineCol.setHsl(h, s, l);
+
+            // if(axis = axisMouseOver)std::cerr << "r: " << lineCol.red() << std::endl;
+
+            colors.push_back((float)lineCol.red() / 255);
+            colors.push_back((float)lineCol.green() / 255);
+            colors.push_back((float)lineCol.blue() / 255);
+            colors.push_back(1);
+
+            colors.push_back((float)lineCol.red() / 255);
+            colors.push_back((float)lineCol.green() / 255);
+            colors.push_back((float)lineCol.blue() / 255);
+            colors.push_back(1);
+
+            colors.push_back((float)lineCol.red() / 255);
+            colors.push_back((float)lineCol.green() / 255);
+            colors.push_back((float)lineCol.blue() / 255);
+            colors.push_back(1);
+
+            colors.push_back((float)lineCol.red() / 255);
+            colors.push_back((float)lineCol.green() / 255);
+            colors.push_back((float)lineCol.blue() / 255);
+            colors.push_back(1);
+
+            colors.push_back((float)lineCol.red() / 255);
+            colors.push_back((float)lineCol.green() / 255);
+            colors.push_back((float)lineCol.blue() / 255);
+            colors.push_back(1);
+
+            colors.push_back((float)lineCol.red() / 255);
+            colors.push_back((float)lineCol.green() / 255);
+            colors.push_back((float)lineCol.blue() / 255);
+            colors.push_back(1);
+        }
 
         for (tuple<float, float, float, int> line : lines)
         {
@@ -1415,7 +1513,7 @@ void PCVizWidget::drawQtPainter(QPainter *painter)
     painter->setBrush(Qt::NoBrush);
     for (int i = 0; i < numDimensions; i++)
     {
-        if(selMins[i] != -1)
+        if (selMins[i] != -1)
         {
             a = QPointF(plotBBox.left() + axesPositions[i] * plotBBox.width() - halfCursorWidth,
                         plotBBox.top() + plotBBox.height() * (1.0 - selMins[i]));
@@ -1562,22 +1660,25 @@ float PCVizWidget::dataMin(int index)
     return allDimMins[index];
 }
 
-void PCVizWidget::setHardwareTopologySampleSet(vector<int> * indices)
+void PCVizWidget::setHardwareTopologySampleSet(vector<int> *indices)
 {
-    //std::cerr << "receiving hardware topology sample set\n";
+    // std::cerr << "receiving hardware topology sample set\n";
     hardwareTopoSamples = indices;
     needsRecalcLines = true;
     needsRepaint = true;
 }
 
-bool PCVizWidget::hasAxis(int dataIndex){
+bool PCVizWidget::hasAxis(int dataIndex)
+{
     return axesDataIndex.contains(dataIndex);
 }
 
-void PCVizWidget::selectAll(){
+void PCVizWidget::selectAll()
+{
     dataSet->selectAll();
 
-    for(int i = 0; i < numDimensions; i++){
+    for (int i = 0; i < numDimensions; i++)
+    {
         selMins[i] = -1;
         selMaxes[i] = -1;
     }
@@ -1587,13 +1688,16 @@ void PCVizWidget::selectAll(){
     needsRepaint = true;
 }
 
-int PCVizWidget::populatedBins(int dataIndex){
+int PCVizWidget::populatedBins(int dataIndex)
+{
     int acc = 0;
     vector<bool> populated;
     populated.resize(numHistBins, false);
-    for(int i = 0; i < dataSet->getNumberOfSamples(); i++){
+    for (int i = 0; i < dataSet->getNumberOfSamples(); i++)
+    {
         int bin = binMatrix[dataIndex * dataSet->getNumberOfSamples() + i];
-        if(!populated[bin]){
+        if (!populated[bin])
+        {
             populated[bin] = true;
             acc++;
         }
