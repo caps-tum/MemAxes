@@ -6,7 +6,7 @@
 #include <QCompleter>
 #include <QMessageBox>
 
-#define DEBUG_OUTPUT true
+#define DEBUG_OUTPUT false
 
 class Phrase
 {
@@ -27,7 +27,7 @@ public:
     {
         str_tolower(&query);
         //std::cerr << "matching \"" << query << "\" to \"" << word << "\" : " << levenshtein_distance(query, word, .2, 1.5, 1.8) << std::endl;
-        return levenshtein_distance(query, word, .3, 1.5, 1.8) / word.length();
+        return levenshtein_distance(query, word, .3, 1.0, 1.5) / word.length();
     }
 
     float matchMissingLetters(string query)
@@ -78,14 +78,15 @@ private:
 
         for (int i = 1; i < a.length() + 1; i++)
         {
-            bool fromAbove = false;
-
             for (int j = 1; j < row_length; j++)
             {
                 float this_sub_cost = substitution_cost;
                 if (a.at(i - 1) == b.at(j - 1)){
                     this_sub_cost = 0;
-                    fromAbove = true;
+                }
+
+                if(a.at(i-1) == ' ' && b.at(j - 1) == '_'){
+                    this_sub_cost = 0;
                 }
 
                 float this_insertion_cost = insertion_cost;
@@ -101,13 +102,11 @@ private:
                 float nValue = 9999;
                 nValue = insVal;
                 if(delVal < nValue){
-                    fromAbove = true;
                     nValue = delVal;
                 }
 
                 if(subVal < nValue){
                     nValue = subVal;
-                    fromAbove = true;
                 }
                 cache[i * row_length + j] = nValue;
             }

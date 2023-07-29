@@ -217,6 +217,9 @@ MainWindow::MainWindow(QWidget *parent) :
     frameTimer = new QTimer(this);
     frameTimer->setInterval(1000/60); // 60fps
     connect(frameTimer,SIGNAL(timeout()),this,SLOT(frameUpdateAll()));
+
+    std::cerr << "created all widgets and frame timer\n";
+
     frameTimer->start();
 }
 

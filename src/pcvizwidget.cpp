@@ -808,9 +808,18 @@ void PCVizWidget::recalcLines(int dirtyAxis)
 {
 
     // std::cerr << "recalc with filter "<<filterLine<<std::endl;
-    //  std::cerr << "entering recalcLines\n";
+    std::cerr << "entering recalcLines\n";
     if (SKIP_GL)
         return;
+
+    if (!processed){
+        std::cerr << "exiting recalcLines: Data not processed\n";
+        return;
+    }
+        
+
+    verts.clear();
+    colors.clear();
 
     milliseconds msStart = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
 
@@ -819,22 +828,7 @@ void PCVizWidget::recalcLines(int dirtyAxis)
     int i, axis, nextAxis; //, elem;
     // QVector<double>::Iterator p;
 
-    if (!processed)
-        return;
 
-    verts.clear();
-    colors.clear();
-
-    // verts.resize((numDimensions - 1) * dataSet->getNumberOfSamples() * 4);
-    // colors.resize((numDimensions - 1) * dataSet->getNumberOfSamples() * 8);
-
-    QVector4D redVec = QVector4D(255, 0, 0, 255);
-    QColor dataSetColor = colorMap.at(0);
-    qreal Cr, Cg, Cb;
-    dataSetColor.getRgbF(&Cr, &Cg, &Cb);
-    QVector4D dataColor = QVector4D(Cr, Cg, Cb, 1);
-
-    col = dataColor;
 
     int *condAxisStart = binMatrix;
     int condAxis = 0;
@@ -859,9 +853,11 @@ void PCVizWidget::recalcLines(int dirtyAxis)
         // printVector(axesOrder);
         // if(axis == axesOrder.indexOf(axisMouseOver))std::cerr << "axisMouseOver" << axisMouseOver << "axis: "<< axis << " nextAxis: " << nextAxis << "condAxis: "<< condAxis << "data at Axis: " << axesDataIndex[axis] << " data at nextAxis: " << axesDataIndex[nextAxis] << " binMatrix: " << binMatrix << std::endl;
 
-        int correlation[numHistBins * numHistBins];
+        int correlationSelected[numHistBins * numHistBins];
+        int correlationUnselected[numHistBins * numHistBins];
 
-        std::fill(correlation, correlation + numHistBins * numHistBins, 0);
+        std::fill(correlationSelected, correlationSelected + numHistBins * numHistBins, 0);
+        std::fill(correlationUnselected, correlationUnselected + numHistBins * numHistBins, 0);
 
         // std::cerr << "number of samples to iterate "<<(dataSet->getNumberOfSamples()) << std::endl;
         if (hardwareTopoSamples == nullptr)
@@ -871,7 +867,9 @@ void PCVizWidget::recalcLines(int dirtyAxis)
                 if ((binMouseOver < 0 || condAxisStart[s] == binMouseOver) && (filterLine < 0 || filterLine == dataSet->GetSampleAttribByIndex(s, 2)) && !(dataSet->selectionDefined() && !dataSet->selected(s)))
                 {
                     // std::cerr << "attempting to access element " << (axisStart[s] * numHistBins + axisStart[s]) << std::endl;
-                    correlation[axisStart[s] * numHistBins + nextAxisStart[s]]++;
+                    correlationSelected[axisStart[s] * numHistBins + nextAxisStart[s]]++;
+                }else{
+                    correlationUnselected[axisStart[s] * numHistBins + nextAxisStart[s]]++;
                 }
                 // if(axis == 14)std::cerr << "value at 0 to 0: " << correlation[0] << " visibility : " << dataSet->selected(s) << "\n";
             }
@@ -880,8 +878,11 @@ void PCVizWidget::recalcLines(int dirtyAxis)
                 if ((binMouseOver < 0 || condAxisStart[s] == binMouseOver) && (filterLine < 0 || filterLine == dataSet->GetSampleAttribByIndex(s, 2)) && !(dataSet->selectionDefined() && !dataSet->selected(s)))
                 {
                     // std::cerr << "attempting to access element " << (axisStart[s] * numHistBins + axisStart[s]) << std::endl;
-                    correlation[axisStart[s] * numHistBins + nextAxisStart[s]]++;
+                    correlationSelected[axisStart[s] * numHistBins + nextAxisStart[s]]++;
+                }else{
+                    correlationUnselected[axisStart[s] * numHistBins + nextAxisStart[s]]++;
                 }
+
             }
         }
 
@@ -897,9 +898,9 @@ void PCVizWidget::recalcLines(int dirtyAxis)
             int allCorrelationsMin = INT_MAX;
             for (int i = 0; i < numHistBins * numHistBins; i++)
             {
-                allCorrelationsMax = std::max(correlation[i], allCorrelationsMax);
-                if (correlation[i] != 0)
-                    allCorrelationsMin = std::min(correlation[i], allCorrelationsMin);
+                allCorrelationsMax = std::max(correlationSelected[i], allCorrelationsMax);
+                if (correlationSelected[i] != 0)
+                    allCorrelationsMin = std::min(correlationSelected[i], allCorrelationsMin);
             }
             if (allCorrelationsMin == allCorrelationsMax)
                 allCorrelationsMin = 0;
@@ -923,9 +924,9 @@ void PCVizWidget::recalcLines(int dirtyAxis)
                 int corMin = INT_MAX;
                 for (int j = 0; j < numHistBins; j++)
                 {
-                    corMax = std::max((int)correlation[i * numHistBins + j], corMax);
-                    if (correlation[i * numHistBins + j] != 0)
-                        corMin = std::min((int)correlation[i * numHistBins + j], corMin);
+                    corMax = std::max((int)correlationSelected[i * numHistBins + j], corMax);
+                    if (correlationSelected[i * numHistBins + j] != 0)
+                        corMin = std::min((int)correlationSelected[i * numHistBins + j], corMin);
                 }
                 if (corMin == corMax)
                     corMin = 0;
@@ -948,9 +949,9 @@ void PCVizWidget::recalcLines(int dirtyAxis)
                 int corMin = INT_MAX;
                 for (int j = 0; j < numHistBins; j++)
                 {
-                    corMax = std::max((int)correlation[j * numHistBins + i], corMax);
-                    if (correlation[j * numHistBins + i] != 0)
-                        corMin = std::min((int)correlation[j * numHistBins + i], corMin);
+                    corMax = std::max((int)correlationSelected[j * numHistBins + i], corMax);
+                    if (correlationSelected[j * numHistBins + i] != 0)
+                        corMin = std::min((int)correlationSelected[j * numHistBins + i], corMin);
                 }
                 if (corMin == corMax)
                     corMin = 0;
@@ -983,16 +984,16 @@ void PCVizWidget::recalcLines(int dirtyAxis)
 
             for (int into = 0; into < numHistBins; into++)
             {
-                if (correlation[out * numHistBins + into] != 0)
+                if (correlationSelected[out * numHistBins + into] != 0)
                 {
                     float bVal = (float)into / (float)numHistBins + .5 / numHistBins;
 
-                    float progress = scale(correlation[out * numHistBins + into], scaleBottom[out * numHistBins + into], scaleTop[out * numHistBins + into], 0, 1);
+                    float progress = scale(correlationSelected[out * numHistBins + into], scaleBottom[out * numHistBins + into], scaleTop[out * numHistBins + into], 0, 1);
                     /*
                     if (axis == 14)
                         std::cerr << "bottom: " << scaleBottom[out * numHistBins + into] << " top: " << scaleTop[out * numHistBins + into] << " correlation strength: " << correlation[out * numHistBins + into] << " progress: " << progress << std::endl;
                     */
-                    lines.push_back(make_tuple(progress, aVal, bVal, correlation[out * numHistBins + into]));
+                    lines.push_back(make_tuple(progress, aVal, bVal, correlationSelected[out * numHistBins + into]));
                 }
             }
         }
