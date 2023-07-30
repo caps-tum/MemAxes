@@ -27,7 +27,7 @@ public:
     {
         str_tolower(&query);
         //std::cerr << "matching \"" << query << "\" to \"" << word << "\" : " << levenshtein_distance(query, word, .2, 1.5, 1.8) << std::endl;
-        return levenshtein_distance(query, word, .3, 1.0, 1.5) / word.length();
+        return levenshtein_distance(query, word, .5, 1.0, 1.5) / word.length();
     }
 
     float matchMissingLetters(string query)
@@ -71,7 +71,7 @@ private:
         float cache[cache_size];
 
         for (int j = 0; j < row_length; j++)
-            cache[j] = j;
+            cache[j] = j * insertion_cost / 2;
 
         for (int i = 1; i < a.length() + 1; i++)
             cache[i * row_length] = i;

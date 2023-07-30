@@ -240,7 +240,7 @@ int PCVizWidget::removeAxis(int index)
     numDimensions--;
     // redistribute axes
     orderByPosition();
-    distributeAxes();
+    distributeAxes(-1);
 
     needsRepaint = true;
     needsRecalcLines = true;
@@ -278,7 +278,7 @@ int PCVizWidget::addAxis(int index)
     needsCalcHistBins = true;
 
     orderByPosition();
-    distributeAxes();
+    distributeAxes(-1);
     needsRepaint = true;
 
     // highlightAxis(numDimensions - 1);
@@ -322,7 +322,7 @@ int PCVizWidget::correlateAxes(int dataIndex1, int dataIndex2)
     axesOrder[index2] = axesOrder[index1] + 1;
     // printVector(axesOrder);
 
-    distributeAxes();
+    distributeAxes(-1);
     highlightMultipleAxes(index1, index2);
     needsRecalcLines = true;
     needsRepaint = true;
@@ -345,6 +345,7 @@ void PCVizWidget::mouseReleaseEvent(QMouseEvent *event)
     needsProcessSelection = true;
 
     movingAxis = -1;
+    distributeAxes(-1);
     selectionAxis = -1;
     lastSel = -1;
 
@@ -490,6 +491,7 @@ bool PCVizWidget::eventFilter(QObject *obj, QEvent *event)
                 int instructionUID = scale(binMouseOver, 0, numHistBins - 1, allDimMins[3], allDimMaxes[3]);
                 QMouseEvent *mouseEvent = static_cast<QMouseEvent *>(event);
                 QToolTip::showText(mouseEvent->globalPos(), dataSet->getInstruction(instructionUID), this, rect());
+                needsRepaint = true;
             }
             else
             {
@@ -519,9 +521,10 @@ bool PCVizWidget::eventFilter(QObject *obj, QEvent *event)
             orderByPosition();
             if (SNAPPING)
             {
-                distributeAxes();
+                distributeAxes(movingAxis);
             }
             needsRecalcLines = true;
+            needsRepaint = true;
         }
     }
 
@@ -1429,6 +1432,7 @@ void PCVizWidget::beginAnimation()
 
     animationAxis = getClosestAxis(contextMenuMousePos.x());
     movingAxis = -1;
+    
 
     qreal selDelta = selMaxes[animationAxis] - selMins[animationAxis];
     if (selDelta == 0)
@@ -1669,11 +1673,11 @@ void PCVizWidget::drawQtPainter(QPainter *painter)
     }
 }
 
-void PCVizWidget::distributeAxes()
+void PCVizWidget::distributeAxes(int exception)
 {
     for (int i = 0; i < numDimensions; i++)
     {
-        axesPositions[i] = axesOrder[i] * (1.0 / (numDimensions - 1));
+        if(i != exception)axesPositions[i] = axesOrder[i] * (1.0 / (numDimensions - 1));
     }
 }
 

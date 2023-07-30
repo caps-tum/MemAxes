@@ -110,7 +110,7 @@ protected:
     void highlightMultipleAxes(int indexStart, int indexEnd);
     void drawQtPainter(QPainter *painter);
 
-    void distributeAxes();
+    void distributeAxes(int exception);
 
     void orderByPosition();
 

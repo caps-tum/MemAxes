@@ -130,6 +130,7 @@ QColor CodeEditor::highlightColors(float strength)
 {
     //std::cerr << "color using strength " << strength << std::endl;
     QColor ret;
+    strength = clamp(strength, 0 ,1);
     ret.setHsl((int)(84 - 64 * strength), 255, (int)(217 - 90 * strength));
     //std::cerr << (217 - 90 * strength) << std::endl;
     return ret;

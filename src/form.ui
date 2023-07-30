@@ -470,7 +470,7 @@
                <item>
                 <widget class="QPushButton" name="addHistogram">
                  <property name="text">
-                  <string>Add Histogram</string>
+                  <string>Add</string>
                  </property>
                 </widget>
                </item>
