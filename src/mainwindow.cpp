@@ -181,6 +181,7 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->jumpingCheckbox, SIGNAL(clicked()), parallelCoordinatesViz, SLOT(toggleCodeJumping()));
     connect(ui->SharedMinMax, SIGNAL(clicked()), parallelCoordinatesViz, SLOT(toggleSharedMinMax()));
     connect(memViz, SIGNAL(hoverHardwareTopoSamples(vector<int> *)), parallelCoordinatesViz, SLOT(setHardwareTopologySampleSet(vector<int>*)));
+    connect(ui->UnselOpacity, SIGNAL(valueChanged(int)), parallelCoordinatesViz, SLOT(setUnselOpacity(int)));
 
     vizWidgets.push_back(parallelCoordinatesViz);
     pcViz = parallelCoordinatesViz;

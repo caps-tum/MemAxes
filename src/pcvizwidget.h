@@ -196,7 +196,7 @@ private:
     float glViewPortHeight;
 
     qreal selOpacity;
-    qreal unselOpacity;
+    float unselOpacity;
 
     // OpenGL
     QVector<GLfloat> verts;

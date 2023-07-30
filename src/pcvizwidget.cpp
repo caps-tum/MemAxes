@@ -80,7 +80,7 @@ PCVizWidget::PCVizWidget(QWidget *parent)
     needsRepaint = true;
 
     selOpacity = 0.4;
-    unselOpacity = 0.1;
+    unselOpacity = 1.;
 
     numHistBins = 50;
     showHistograms = true;
@@ -406,6 +406,28 @@ bool PCVizWidget::eventFilter(QObject *obj, QEvent *event)
         if (ySel < 1 && ySel >= 0 && mousePos.x() > plotBBox.left() && mousePos.x() < plotBBox.right())
         {
             binMouseOver = ySel * numHistBins;
+
+            int bottom = binMouseOver;
+            int top = binMouseOver;
+
+            int iterations = 0;
+
+            while (histVals[axis][binMouseOver] == 0 && iterations < numHistBins * .1)
+            {
+                top++;
+                if (top < numHistBins)
+                    if (histVals[axis][top] != 0)
+                        binMouseOver = top;
+                bottom--;
+                if (bottom >= 0)
+                    if (histVals[axis][bottom] != 0)
+                        binMouseOver = bottom;
+                iterations++;
+            }
+
+            if (histVals[axis][binMouseOver] == 0)
+                binMouseOver = -1;
+
             hardwareTopoSamples = nullptr;
             // uncomment to show all correlations when mouse hovers over an empty bin. Deactivated because it can be irritating
             // if(histVals[axisMouseOver][binMouseOver] == 0)binMouseOver = -1;
@@ -859,14 +881,17 @@ void PCVizWidget::recalcLines(int dirtyAxis)
         {
             for (int s = 0; s < dataSet->getNumberOfSamples(); s++)
             {
-                if ((binMouseOver < 0 || condAxisStart[s] == binMouseOver) && (filterLine < 0 || filterLine == dataSet->GetSampleAttribByIndex(s, 2)) && !(dataSet->selectionDefined() && !dataSet->selected(s)))
+                if (!(dataSet->selectionDefined() && !dataSet->selected(s)))
                 {
-                    // std::cerr << "attempting to access element " << (axisStart[s] * numHistBins + axisStart[s]) << std::endl;
-                    correlationSelected[axisStart[s] * numHistBins + nextAxisStart[s]]++;
-                }
-                else
-                {
-                    correlationUnselected[axisStart[s] * numHistBins + nextAxisStart[s]]++;
+                    if ((condAxisStart[s] == binMouseOver) || (filterLine == dataSet->GetSampleAttribByIndex(s, 2)))
+                    {
+                        // std::cerr << "attempting to access element " << (axisStart[s] * numHistBins + axisStart[s]) << std::endl;
+                        correlationSelected[axisStart[s] * numHistBins + nextAxisStart[s]]++;
+                    }
+                    else
+                    {
+                        correlationUnselected[axisStart[s] * numHistBins + nextAxisStart[s]]++;
+                    }
                 }
                 // if(axis == 14)std::cerr << "value at 0 to 0: " << correlation[0] << " visibility : " << dataSet->selected(s) << "\n";
             }
@@ -879,12 +904,12 @@ void PCVizWidget::recalcLines(int dirtyAxis)
                 if (hardwareTopoSamplesIndex < hardwareTopoSamples->size() && hardwareTopoSamples->at(hardwareTopoSamplesIndex) == s)
                 {
                     // std::cerr << "attempting to access element " << (axisStart[s] * numHistBins + axisStart[s]) << std::endl;
-                    correlationSelected[axisStart[s] * numHistBins + nextAxisStart[s]]++;
+                    if (!(dataSet->selectionDefined() && !dataSet->selected(s)))correlationSelected[axisStart[s] * numHistBins + nextAxisStart[s]]++;
                     hardwareTopoSamplesIndex++;
                 }
                 else
                 {
-                    correlationUnselected[axisStart[s] * numHistBins + nextAxisStart[s]]++;
+                    if (!(dataSet->selectionDefined() && !dataSet->selected(s)))correlationUnselected[axisStart[s] * numHistBins + nextAxisStart[s]]++;
                 }
             }
         }
@@ -900,21 +925,42 @@ void PCVizWidget::recalcLines(int dirtyAxis)
         case allBins:
         {
             // calculate min and max of all correlations
-            int allCorrelationsMax = 0;
-            int allCorrelationsMin = INT_MAX;
+            int selCorrelationsMax = 0;
+            int selCorrelationsMin = INT_MAX;
+
+            int unselCorrelationsMax = 0;
+            int unselCorrelationsMin = INT_MAX;
             for (int i = 0; i < numHistBins * numHistBins; i++)
             {
-                allCorrelationsMax = std::max(correlationSelected[i], allCorrelationsMax);
+                selCorrelationsMax = std::max(correlationSelected[i], selCorrelationsMax);
+                unselCorrelationsMax = std::max(correlationUnselected[i], unselCorrelationsMax);
                 if (correlationSelected[i] != 0)
-                    allCorrelationsMin = std::min(correlationSelected[i], allCorrelationsMin);
+                    selCorrelationsMin = std::min(correlationSelected[i], selCorrelationsMin);
+
+                if (correlationUnselected[i] != 0)
+                    unselCorrelationsMin = std::min(correlationUnselected[i], unselCorrelationsMin);
             }
-            if (allCorrelationsMin == allCorrelationsMax)
-                allCorrelationsMin = 0;
+            if (selCorrelationsMin == selCorrelationsMax)
+                selCorrelationsMin = 0;
+
+            if (unselCorrelationsMin == unselCorrelationsMax)
+                unselCorrelationsMin = 0;
+
+            if (sharedMinMax)
+            {
+                selCorrelationsMin = std::min(selCorrelationsMin, unselCorrelationsMin);
+                unselCorrelationsMin = selCorrelationsMin;
+
+                selCorrelationsMax = std::max(selCorrelationsMax, unselCorrelationsMax);
+                unselCorrelationsMax = selCorrelationsMax;
+            }
 
             for (int k = 0; k < numHistBins * numHistBins; k++)
             {
-                scaleTopSelected[k] = allCorrelationsMax;
-                scaleBottomSelected[k] = allCorrelationsMin;
+                scaleTopSelected[k] = selCorrelationsMax;
+                scaleBottomSelected[k] = selCorrelationsMin;
+                scaleTopUnselected[k] = unselCorrelationsMax;
+                scaleBottomUnselected[k] = unselCorrelationsMin;
             }
         }
         break;
@@ -926,20 +972,39 @@ void PCVizWidget::recalcLines(int dirtyAxis)
                 if (histVals[axis][i] == 0)
                     continue;
                 // calculate min and max
-                int corMax = 0;
-                int corMin = INT_MAX;
+                int selMax = 0;
+                int selMin = INT_MAX;
+                int unselMax = 0;
+                int unselMin = INT_MAX;
                 for (int j = 0; j < numHistBins; j++)
                 {
-                    corMax = std::max((int)correlationSelected[i * numHistBins + j], corMax);
+                    selMax = std::max((int)correlationSelected[i * numHistBins + j], selMax);
                     if (correlationSelected[i * numHistBins + j] != 0)
-                        corMin = std::min((int)correlationSelected[i * numHistBins + j], corMin);
+                        selMin = std::min((int)correlationSelected[i * numHistBins + j], selMin);
+
+                    unselMax = std::max((int)correlationUnselected[i * numHistBins + j], unselMax);
+                    if (correlationUnselected[i * numHistBins + j] != 0)
+                        unselMin = std::min((int)correlationUnselected[i * numHistBins + j], unselMin);
                 }
-                if (corMin == corMax)
-                    corMin = 0;
-                float fillMax = corMax;
-                float fillMin = corMin;
-                std::fill_n(scaleTopSelected + numHistBins * i, numHistBins, corMax);
-                std::fill_n(scaleBottomSelected + numHistBins * i, numHistBins, corMin);
+                if (selMin == selMax)
+                    selMin = 0;
+
+                if (unselMin == unselMax)
+                    unselMin = 0;
+
+                if (sharedMinMax)
+                {
+                    selMin = std::min(selMin, unselMin);
+                    unselMin = selMin;
+
+                    selMax = std::max(selMax, unselMax);
+                    unselMax = selMax;
+                }
+
+                std::fill_n(scaleTopSelected + numHistBins * i, numHistBins, selMax);
+                std::fill_n(scaleBottomSelected + numHistBins * i, numHistBins, selMin);
+                std::fill_n(scaleTopUnselected + numHistBins * i, numHistBins, unselMax);
+                std::fill_n(scaleBottomUnselected + numHistBins * i, numHistBins, unselMin);
             }
         }
         break;
@@ -951,25 +1016,43 @@ void PCVizWidget::recalcLines(int dirtyAxis)
                 if (histVals[nextAxis][i] == 0)
                     continue;
                 // calculate min and max
-                int corMax = 0;
-                int corMin = INT_MAX;
+                int selMax = 0;
+                int selMin = INT_MAX;
+                int unselMax = 0;
+                int unselMin = INT_MAX;
                 for (int j = 0; j < numHistBins; j++)
                 {
-                    corMax = std::max((int)correlationSelected[j * numHistBins + i], corMax);
+                    selMax = std::max((int)correlationSelected[j * numHistBins + i], selMax);
                     if (correlationSelected[j * numHistBins + i] != 0)
-                        corMin = std::min((int)correlationSelected[j * numHistBins + i], corMin);
+                        selMin = std::min((int)correlationSelected[j * numHistBins + i], selMin);
+
+                    unselMax = std::max((int)correlationUnselected[j * numHistBins + i], unselMax);
+                    if (correlationUnselected[j * numHistBins + i] != 0)
+                        unselMin = std::min((int)correlationUnselected[j * numHistBins + i], unselMin);
                 }
-                if (corMin == corMax)
-                    corMin = 0;
+                if (selMin == selMax)
+                    selMin = 0;
+
+                if (unselMin == unselMax)
+                    unselMin = 0;
+
+                if (sharedMinMax)
+                {
+                    selMin = std::min(selMin, unselMin);
+                    unselMin = selMin;
+
+                    selMax = std::max(selMax, unselMax);
+                    unselMax = selMax;
+                }
 
                 for (int j = 0; j < numHistBins; j++)
                 {
-                    scaleTopSelected[j * numHistBins + i] = corMax;
-                    scaleBottomSelected[j * numHistBins + i] = corMin;
-                }
+                    scaleTopSelected[j * numHistBins + i] = selMax;
+                    scaleBottomSelected[j * numHistBins + i] = selMin;
 
-                if (corMin == corMax)
-                    corMin = 0;
+                    scaleTopUnselected[j * numHistBins + i] = unselMax;
+                    scaleBottomUnselected[j * numHistBins + i] = unselMin;
+                }
             }
         }
         break;
@@ -996,7 +1079,7 @@ void PCVizWidget::recalcLines(int dirtyAxis)
                 if (correlationSelected[out * numHistBins + into] != 0)
                 {
 
-                    float progress = scale(correlationSelected[out * numHistBins + into], scaleBottomSelected[out * numHistBins + into], scaleTopSelected[out * numHistBins + into], 0, 1);
+                    float progress = clamp(scale(correlationSelected[out * numHistBins + into], scaleBottomSelected[out * numHistBins + into], scaleTopSelected[out * numHistBins + into], 0, 1), 0, 1);
                     /*
                     if (axis == 14)
                         std::cerr << "bottom: " << scaleBottom[out * numHistBins + into] << " top: " << scaleTop[out * numHistBins + into] << " correlation strength: " << correlation[out * numHistBins + into] << " progress: " << progress << std::endl;
@@ -1006,17 +1089,19 @@ void PCVizWidget::recalcLines(int dirtyAxis)
 
                 if (correlationUnselected[out * numHistBins + into] != 0)
                 {
-                    float progress = scale(correlationUnselected[out * numHistBins + into], scaleBottomUnselected[out * numHistBins + into], scaleTopUnselected[out * numHistBins + into], 0, 1);
-                    ulines.push_back(make_tuple(1, aVal, bVal, correlationUnselected[out * numHistBins + into]));
+                    float progress = clamp(scale(correlationUnselected[out * numHistBins + into], scaleBottomUnselected[out * numHistBins + into], scaleTopUnselected[out * numHistBins + into], 0, 1), 0, 1);
+                    ulines.push_back(make_tuple(progress, aVal, bVal, correlationUnselected[out * numHistBins + into]));
                 }
             }
         }
 
         std::sort(lines.begin(), lines.end(), orderByFirst);
+        std::sort(ulines.begin(), ulines.end(), orderByFirst);
 
         for (tuple<float, float, float, int> line : ulines)
         {
             float progress = std::get<0>(line);
+            //if(progress < 0 || progress > 1)std::cerr << "progress out of range" << progress << "\n";
 
             float thickness = ((((float)std::get<3>(line) / (float)dataSet->getNumberOfSamples())) * (MAXIMUM_LINE_THICKNESS - MINIMUM_LINE_THICKNESS) + MINIMUM_LINE_THICKNESS) * glViewPortHeight / 2;
 
@@ -1055,9 +1140,22 @@ void PCVizWidget::recalcLines(int dirtyAxis)
             verts.push_back(secondPos);
             verts.push_back(secondHeight + offset);
 
-            int h = 0;
-            int s = 0;
-            int l = 150;
+            progress = clamp(progress, 0, 1);
+
+            if(progress > 1 || progress < 0)std::cerr << "h tf did this happen?\n";
+
+            int h = -20.f * progress + 250.f;
+            int s = 255;
+            int l = (-150.f * progress + 220.f);
+
+
+            //perform alpha blending
+            if(lines.size() != 0){
+                s *= unselOpacity;
+                l = l * unselOpacity + (1-unselOpacity) * 242;
+            }
+        
+            //if(binMouseOver < 0 && hardwareTopoSamples == nullptr)a = 255;
 
             // l = progress;
 
@@ -1068,40 +1166,41 @@ void PCVizWidget::recalcLines(int dirtyAxis)
 
             // if(axis = axisMouseOver)std::cerr << "r: " << lineCol.red() << std::endl;
 
-            colors.push_back((float)lineCol.red() / 255);
-            colors.push_back((float)lineCol.green() / 255);
-            colors.push_back((float)lineCol.blue() / 255);
+            colors.push_back((float)lineCol.red() / 256);
+            colors.push_back((float)lineCol.green() / 256);
+            colors.push_back((float)lineCol.blue() / 256);
             colors.push_back(1);
 
-            colors.push_back((float)lineCol.red() / 255);
-            colors.push_back((float)lineCol.green() / 255);
-            colors.push_back((float)lineCol.blue() / 255);
+            colors.push_back((float)lineCol.red() / 256);
+            colors.push_back((float)lineCol.green() / 256);
+            colors.push_back((float)lineCol.blue() / 256);
             colors.push_back(1);
 
-            colors.push_back((float)lineCol.red() / 255);
-            colors.push_back((float)lineCol.green() / 255);
-            colors.push_back((float)lineCol.blue() / 255);
+            colors.push_back((float)lineCol.red() / 256);
+            colors.push_back((float)lineCol.green() / 256);
+            colors.push_back((float)lineCol.blue() / 256);
             colors.push_back(1);
 
-            colors.push_back((float)lineCol.red() / 255);
-            colors.push_back((float)lineCol.green() / 255);
-            colors.push_back((float)lineCol.blue() / 255);
+            colors.push_back((float)lineCol.red() / 256);
+            colors.push_back((float)lineCol.green() / 256);
+            colors.push_back((float)lineCol.blue() / 256);
             colors.push_back(1);
 
-            colors.push_back((float)lineCol.red() / 255);
-            colors.push_back((float)lineCol.green() / 255);
-            colors.push_back((float)lineCol.blue() / 255);
+            colors.push_back((float)lineCol.red() / 256);
+            colors.push_back((float)lineCol.green() / 256);
+            colors.push_back((float)lineCol.blue() / 256);
             colors.push_back(1);
 
-            colors.push_back((float)lineCol.red() / 255);
-            colors.push_back((float)lineCol.green() / 255);
-            colors.push_back((float)lineCol.blue() / 255);
+            colors.push_back((float)lineCol.red() / 256);
+            colors.push_back((float)lineCol.green() / 256);
+            colors.push_back((float)lineCol.blue() / 256);
             colors.push_back(1);
         }
 
         for (tuple<float, float, float, int> line : lines)
         {
             float progress = std::get<0>(line);
+            //if(progress < 0 || progress > 1)std::cerr << "progress out of range" << progress << "\n";
 
             float thickness = ((((float)std::get<3>(line) / (float)dataSet->getNumberOfSamples())) * (MAXIMUM_LINE_THICKNESS - MINIMUM_LINE_THICKNESS) + MINIMUM_LINE_THICKNESS) * glViewPortHeight / 2;
 
@@ -1139,6 +1238,10 @@ void PCVizWidget::recalcLines(int dirtyAxis)
 
             verts.push_back(secondPos);
             verts.push_back(secondHeight + offset);
+
+            progress = clamp(progress, 0, 1);
+
+            if(progress > 1 || progress < 0)std::cerr << "h tf did this happen?\n";
 
             int h = -20.f * progress + 20.f;
             int s = 255;
@@ -1153,34 +1256,34 @@ void PCVizWidget::recalcLines(int dirtyAxis)
 
             // if(axis = axisMouseOver)std::cerr << "r: " << lineCol.red() << std::endl;
 
-            colors.push_back((float)lineCol.red() / 255);
-            colors.push_back((float)lineCol.green() / 255);
-            colors.push_back((float)lineCol.blue() / 255);
+            colors.push_back((float)lineCol.red() / 256);
+            colors.push_back((float)lineCol.green() / 256);
+            colors.push_back((float)lineCol.blue() / 256);
             colors.push_back(1);
 
-            colors.push_back((float)lineCol.red() / 255);
-            colors.push_back((float)lineCol.green() / 255);
-            colors.push_back((float)lineCol.blue() / 255);
+            colors.push_back((float)lineCol.red() / 256);
+            colors.push_back((float)lineCol.green() / 256);
+            colors.push_back((float)lineCol.blue() / 256);
             colors.push_back(1);
 
-            colors.push_back((float)lineCol.red() / 255);
-            colors.push_back((float)lineCol.green() / 255);
-            colors.push_back((float)lineCol.blue() / 255);
+            colors.push_back((float)lineCol.red() / 256);
+            colors.push_back((float)lineCol.green() / 256);
+            colors.push_back((float)lineCol.blue() / 256);
             colors.push_back(1);
 
-            colors.push_back((float)lineCol.red() / 255);
-            colors.push_back((float)lineCol.green() / 255);
-            colors.push_back((float)lineCol.blue() / 255);
+            colors.push_back((float)lineCol.red() / 256);
+            colors.push_back((float)lineCol.green() / 256);
+            colors.push_back((float)lineCol.blue() / 256);
             colors.push_back(1);
 
-            colors.push_back((float)lineCol.red() / 255);
-            colors.push_back((float)lineCol.green() / 255);
-            colors.push_back((float)lineCol.blue() / 255);
+            colors.push_back((float)lineCol.red() / 256);
+            colors.push_back((float)lineCol.green() / 256);
+            colors.push_back((float)lineCol.blue() / 256);
             colors.push_back(1);
 
-            colors.push_back((float)lineCol.red() / 255);
-            colors.push_back((float)lineCol.green() / 255);
-            colors.push_back((float)lineCol.blue() / 255);
+            colors.push_back((float)lineCol.red() / 256);
+            colors.push_back((float)lineCol.green() / 256);
+            colors.push_back((float)lineCol.blue() / 256);
             colors.push_back(1);
         }
     }
@@ -1230,7 +1333,7 @@ void PCVizWidget::setSelOpacity(int val)
 
 void PCVizWidget::setUnselOpacity(int val)
 {
-    unselOpacity = (qreal)val / 1000.0;
+    unselOpacity = (qreal)val / 256;
     needsRecalcLines = true;
     needsRepaint = true;
 }
@@ -1363,7 +1466,7 @@ void PCVizWidget::paintGL()
     milliseconds msStart = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
 
     // uncomment for grey parallel histograms background
-    // glClearColor(.4,.4,.4,1.);
+    glClearColor(.95,.95,.95,1.);
     glClear(GL_COLOR_BUFFER_BIT);
 
     if (!processed)
@@ -1494,13 +1597,15 @@ void PCVizWidget::drawQtPainter(QPainter *painter)
 
     // Draw cursor
     painter->setOpacity(1);
-    if (cursorPos.x() != -1)
+
+    float cursorY = scale(binMouseOver + .5, 0, numHistBins, plotBBox.bottom(), plotBBox.top());
+    if (cursorPos.x() != -1 && binMouseOver >= 0)
     {
         a.setX(plotBBox.left() + axesPositions[(int)cursorPos.x()] * plotBBox.width() - 10);
-        a.setY(cursorPos.y());
+        a.setY(cursorY);
 
         b.setX(plotBBox.left() + axesPositions[(int)cursorPos.x()] * plotBBox.width() + 10);
-        b.setY(cursorPos.y());
+        b.setY(cursorY);
 
         // std::cerr << cursorPos.y() << std::endl;
         painter->drawLine(a, b);
@@ -1706,7 +1811,8 @@ int PCVizWidget::populatedBins(int dataIndex)
     return acc;
 }
 
-void PCVizWidget::toggleSharedMinMax(){
+void PCVizWidget::toggleSharedMinMax()
+{
     sharedMinMax = !sharedMinMax;
     std::cerr << "toggled shared min max\n";
     needsRecalcLines = true;
