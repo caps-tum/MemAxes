@@ -786,17 +786,16 @@ int DataObject::parseCSVFile(QString dataFileName)
 
         //ibs and additional info to matrix
         for(int i = 19; i < header.length(); i++){
-            string s = lineValues[i].toStdString();
             long long r = 0;
             bool ok = true;
-            if(s != "(null)"){
-                lineValues[i].toLongLong(&ok);
+            if(lineValues[i] != "(null)"){
+                r = lineValues[i].toLongLong(&ok);
 
-                if(ok){
-                    r = std::stoll(s);
-                }else{
-                    r = std::stoull(s, nullptr, 16);
+                if(!ok){
+                    r = lineValues[i].toLongLong(&ok, 16);
                 }
+
+                if(!ok)r = 0;
             }
             sampleMatrix[i*numSamples + elemid] = r;
         }
