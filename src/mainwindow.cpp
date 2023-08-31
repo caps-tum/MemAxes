@@ -273,11 +273,11 @@ int MainWindow::loadData()
 
     QString sourceDir(dataDir+QString("/src/"));
     codeViz->setSourceDir(sourceDir);
-    QString topoDir(dataDir+QString("/hardware.xml"));
-    err = dataSet->loadHardwareTopology(topoDir);
+    //QString topoDir(dataDir+QString("/hardware.xml"));
+    err = dataSet->loadHardwareTopology(dataDir);
     if(err != 0)
     {
-        errdiag("Error loading hardware: "+topoDir);
+        errdiag("Error loading hardware: "+dataDir);
         return err;
     }
     //QString dataSetDir(dataDir+QString("/data/samples.out"));

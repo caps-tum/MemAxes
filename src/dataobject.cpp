@@ -40,6 +40,8 @@
 #include "parseUtil.h"
 #include "chrono"
 #include "fstream"
+#include "musa-parser.h"
+
 
 #include <iostream>
 #include <algorithm>
@@ -64,11 +66,29 @@ DataObject::DataObject()
 
 }
 
-int DataObject::loadHardwareTopology(QString filename)
+int DataObject::loadHardwareTopology(QString directory)
 {
+    int err;
     node = new Node(0);
-    int err = parseHwlocOutput(node, filename.toUtf8().constData()); //adds topo to a next node
 
+    //
+    QDir qd(directory);
+    QStringList topoFiles = qd.entryList(QStringList() << "hardware.xml",QDir::Files);
+    if(topoFiles.length() > 0){
+        QString filename = directory+QString("/hardware.xml");
+        qDebug() << QString("Parsing topology file " + filename);
+        err = parseHwlocOutput(node, filename.toUtf8().constData()); //adds topo to a next node
+    }
+    else{
+        topoFiles = qd.entryList(QStringList() << "*.conf",QDir::Files);
+        if(topoFiles.length() > 0){
+            Chip * socket = new Chip(/*parent*/ node, /*id*/ 0, /*name*/ "MUSA CPU", /*chip type*/ SYS_SAGE_CHIP_TYPE_CPU_SOCKET);
+            QString filename = directory+QString("/")+topoFiles[0];
+            qDebug() << QString("Parsing MUSA topology file " + filename);
+            err = parseMusa(socket, filename.toUtf8().constData());
+        }
+    }
+    qDebug() << QString("Parsing completed");
     //TODO temporary CPU
     //cpu = (Chip*)(node->GetChild(1));
 
@@ -81,6 +101,7 @@ int DataObject::loadHardwareTopology(QString filename)
         // allComponents[i]->attrib["sampleSets"] = (void*) new QMap<DataObject*,SampleSet>();
         allComponents[i]->attrib["transactions"] = (void*) new int();
     }
+    qDebug() << QString("loadHardwareTopology completed");
     return err;
 }
 
@@ -112,7 +133,7 @@ int DataObject::loadData(QString filename)
 
     calcStatistics();
     // constructSortedLists();
-
+    qDebug() << QString("loadData completed");
     return 0;
 }
 
@@ -594,7 +615,7 @@ void DataObject::collectTopoSamples()
 }
 
 int DataObject::DecodeDataSource(QString data_src_str)
-{ //qDebug( "dataObject 22" );
+{
     if(data_src_str == "L1")
         return 1;
     else if(data_src_str == "LFB")

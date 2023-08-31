@@ -54,7 +54,6 @@
 #include "hwtopo.h"
 #include "util.h"
 #include "console.h"
-
 #include "sys-sage.hpp"
 
 #define INVISIBLE false
