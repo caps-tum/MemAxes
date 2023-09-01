@@ -40,6 +40,7 @@
 #include <QPainter>
 #include <QTextBlock>
 #include <QTextStream>
+#include <QSizePolicy>
 
 #include "codeeditor.h"
 
@@ -48,25 +49,27 @@ CodeEditor::CodeEditor(QWidget *parent) : QPlainTextEdit(parent)
     lineNumberArea = new LineNumberArea(this);
 
     connect(this, SIGNAL(blockCountChanged(int)), this, SLOT(updateLineNumberAreaWidth(int)));
-    connect(this, SIGNAL(updateRequest(QRect,int)), this, SLOT(updateLineNumberArea(QRect,int)));
+    connect(this, SIGNAL(updateRequest(QRect, int)), this, SLOT(updateLineNumberArea(QRect, int)));
     connect(this, SIGNAL(cursorPositionChanged()), this, SLOT(highlightCurrentLine()));
 
     nonUserCursorChange = 0;
 
     updateLineNumberAreaWidth(0);
     highlightCurrentLine();
+
 }
 
 int CodeEditor::lineNumberAreaWidth()
 {
     int digits = 1;
     int max = qMax(1, blockCount());
-    while (max >= 10) {
+    while (max >= 10)
+    {
         max /= 10;
         ++digits;
     }
 
-    int space = 3 + fontMetrics().width(QLatin1Char('9')) * digits;
+    int space = 3 + fontMetrics().horizontalAdvance(QLatin1Char('9')) * digits;
 
     return space;
 }
@@ -99,23 +102,23 @@ void CodeEditor::highlightCurrentLine()
 {
     QList<QTextEdit::ExtraSelection> extraSelections;
 
-    //if (!isReadOnly()) {
-        QTextEdit::ExtraSelection selection;
+    // if (!isReadOnly()) {
+    QTextEdit::ExtraSelection selection;
 
-        QColor lineColor = QColor(Qt::yellow).lighter(160);
+    QColor lineColor = QColor(Qt::yellow).lighter(160);
 
-        selection.format.setBackground(lineColor);
-        selection.format.setProperty(QTextFormat::FullWidthSelection, true);
-        selection.cursor = textCursor();
-        selection.cursor.clearSelection();
-        extraSelections.append(selection);
+    selection.format.setBackground(lineColor);
+    selection.format.setProperty(QTextFormat::FullWidthSelection, true);
+    selection.cursor = textCursor();
+    selection.cursor.clearSelection();
+    extraSelections.append(selection);
     //}
 
     setExtraSelections(extraSelections);
 
-    if(nonUserCursorChange)
+    if (nonUserCursorChange)
     {
-        //emit lineSelected(this->textCursor().blockNumber());
+        // emit lineSelected(this->textCursor().blockNumber());
         nonUserCursorChange = 0;
         return;
     }
@@ -123,9 +126,60 @@ void CodeEditor::highlightCurrentLine()
     nonUserCursorChange = 1;
 }
 
+QColor CodeEditor::highlightColors(float strength)
+{
+    //std::cerr << "color using strength " << strength << std::endl;
+    QColor ret;
+    strength = clamp(strength, 0 ,1);
+    ret.setHsl((int)(84 - 64 * strength), 255, (int)(217 - 90 * strength));
+    //std::cerr << (217 - 90 * strength) << std::endl;
+    return ret;
+}
+
+void CodeEditor::highlightLines(vector<tuple<int, float>> lines)
+{
+    QList<QTextEdit::ExtraSelection> extraSelections;
+
+    
+
+    int maxLine = 0;
+    float maxVal = 0;
+
+    for (tuple<int, float> line : lines)
+    {
+        QTextEdit::ExtraSelection selection;
+        if (get<1>(line) > maxVal)
+        {
+            maxVal = get<1>(line);
+            maxLine = get<0>(line);
+        }
+
+        //std::cerr << "highlight line value " <<  get<1>(line) << std::endl;
+        QColor hColor = highlightColors(get<1>(line));
+
+        //std::cerr << hColor.red() << std::endl;
+
+        selection.format.setBackground(hColor);
+        selection.format.setProperty(QTextFormat::FullWidthSelection, true);
+        selection.cursor = QTextCursor(document()->findBlockByLineNumber(get<0>(line) - 1));
+        selection.cursor.clearSelection();
+        extraSelections.append(selection);
+    }
+
+    //move to position
+    const QTextBlock &block = this->document()->findBlockByNumber(maxLine);
+    QTextCursor cursor(block);
+    cursor.movePosition(QTextCursor::Right, QTextCursor::MoveAnchor, 0);
+    this->setTextCursor(cursor);
+    this->centerCursor();
+
+    setExtraSelections(extraSelections);
+}
+
 void CodeEditor::setLine(int line)
 {
-    // code view starts at 1
+    // std::cerr << "receiving set line signal " << line << std::endl;
+    //  code view starts at 1
     line--;
     nonUserCursorChange = 0;
 
@@ -134,15 +188,21 @@ void CodeEditor::setLine(int line)
     cursor.movePosition(QTextCursor::Right, QTextCursor::MoveAnchor, 0);
     this->setTextCursor(cursor);
     this->centerCursor();
-    this->setFocus();
-
+    // this->setFocus();
 }
 
 void CodeEditor::setFile(QFile *file)
 {
-    QTextStream codeStream(file);
-    this->setPlainText(codeStream.readAll());
-    file->reset();
+    if (file != nullptr)
+    {
+        QTextStream codeStream(file);
+        this->setPlainText(codeStream.readAll());
+        file->reset();
+    }
+    else
+    {
+        this->setPlainText("FILLE COULD NOT BE FOUND");
+    }
 }
 
 void CodeEditor::lineNumberAreaPaintEvent(QPaintEvent *event)
@@ -152,11 +212,13 @@ void CodeEditor::lineNumberAreaPaintEvent(QPaintEvent *event)
 
     QTextBlock block = firstVisibleBlock();
     int blockNumber = block.blockNumber();
-    int top = (int) blockBoundingGeometry(block).translated(contentOffset()).top();
-    int bottom = top + (int) blockBoundingRect(block).height();
+    int top = (int)blockBoundingGeometry(block).translated(contentOffset()).top();
+    int bottom = top + (int)blockBoundingRect(block).height();
 
-    while (block.isValid() && top <= event->rect().bottom()) {
-        if (block.isVisible() && bottom >= event->rect().top()) {
+    while (block.isValid() && top <= event->rect().bottom())
+    {
+        if (block.isVisible() && bottom >= event->rect().top())
+        {
             QString number = QString::number(blockNumber + 1);
             painter.setPen(Qt::black);
             painter.drawText(0, top, lineNumberArea->width(), fontMetrics().height(),
@@ -165,8 +227,7 @@ void CodeEditor::lineNumberAreaPaintEvent(QPaintEvent *event)
 
         block = block.next();
         top = bottom;
-        bottom = top + (int) blockBoundingRect(block).height();
+        bottom = top + (int)blockBoundingRect(block).height();
         ++blockNumber;
     }
 }
-

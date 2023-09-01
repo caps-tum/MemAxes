@@ -43,6 +43,9 @@
 
 #include <QVector2D>
 #include <QVector4D>
+#include <QToolTip>
+
+enum LineColorMode{allBins, firstAxis, secondAxis};
 
 class PCVizWidget
         : public VizWidget
@@ -53,30 +56,72 @@ public:
     PCVizWidget(QWidget *parent = 0);
 
 public:
+    void dataCorrelationMatrix(int dataIndex1, int dataIndex2, int *mat);
     void recalcLines(int dirtyAxis = -1);
+    int strongestOutgoingCor(int* mat, int outgoingBin);
+    int strongestIncomingCor(int* mat, int incomingBin);
+    void selectValRange(int dataIndex, float rangeMin, float rangeMax);
+    void selectValRelativeRange(int dataIndex, float rangeMin, float rangeMax);
+    int removeAxis(int index);
+    int addAxis(int index);
+    int correlateAxes(int dataIndex1, int dataIndex2);
+    float dataMax(int dataIndex);
+    float dataMin(int dataIndex);
+    bool hasAxis(int dataIndex);
+    int populatedBins(int dataIndex);
+
+    void selectAll();
 
 signals:
     void lineSelected(int line);
+    void selectSourceFileByIndex(int index);
+    void highlightLines(vector<tuple<int, float>> lines);
 
 public slots:
     void frameUpdate();
     void selectionChangedSlot();
     void visibilityChangedSlot();
 
+    void setNumHistBins(int n);
+
     void showContextMenu(const QPoint &);
     void setSelOpacity(int val);
     void setUnselOpacity(int val);
     void setShowHistograms(bool checked);
+    void toggleSharedMinMax();
+    void resetSelection();
     void beginAnimation();
     void endAnimation();
+
+    void setLineColoringAllBins();
+    void setLineColoringFirstAxis();
+    void setLineColoringSecondAxis();
+
+    void setFilterLine(int);
+
+    void toggleCodeJumping();
+
+    void setHardwareTopologySampleSet(vector<int>* indices);
 
 protected:
     void processData();
     void paintGL();
+    void highlightAxis(int index);
+    void highlightMultipleAxes(int indexStart, int indexEnd);
     void drawQtPainter(QPainter *painter);
+
+    void distributeAxes(int exception);
+
+    void orderByPosition();
+
+    
 
     void leaveEvent(QEvent *e);
     void mousePressEvent(QMouseEvent *e);
+    void keyPressEvent(QKeyEvent *e) override
+    {
+        std::cerr << "key pressed\n";
+    }
     void mouseReleaseEvent(QMouseEvent *e);
     bool eventFilter(QObject *obj, QEvent *event);
 
@@ -84,7 +129,12 @@ private:
     int getClosestAxis(int xval);
     void processSelection();
     void calcMinMaxes();
+    bool axisInteresting(int axis);
+    void eliminateEmptyAxes();
     void calcHistBins();
+    float yToSelection(float y);
+
+    int sourceLineOfBin(int bin);
 
 private:
     bool needsRecalcLines;
@@ -103,15 +153,19 @@ private:
     ColorMap colorMap;
 
     QVector<QVector<qreal> > histVals;
+    float* histValMatrix;
     QVector<qreal> histMaxVals;
 
-    QVector<qreal> dimMins;
-    QVector<qreal> dimMaxes;
+    //QVector<qreal> dimMins;
+    long long* allDimMins;
+    //QVector<qreal> dimMaxes;
+    long long* allDimMaxes;
 
     QVector<qreal> selMins;
     QVector<qreal> selMaxes;
 
     QVector<int> axesOrder;
+    QVector<int> axesDataIndex;
     QVector<qreal> axesPositions;
 
     QPoint contextMenuMousePos;
@@ -124,17 +178,38 @@ private:
     int animationAxis;
     int movingAxis;
 
+    int binMouseOver;
+    int axisMouseOver;
+
     bool showHistograms;
+    bool codeJumping;
+
+    int* binMatrix;
+    bool binMatrixValid;
+    bool binsInitialize;
 
     qreal firstSel;
     qreal lastSel;
 
+    int filterLine;
+    float glViewportWidth;
+    float glViewPortHeight;
+
     qreal selOpacity;
-    qreal unselOpacity;
+    float unselOpacity;
 
     // OpenGL
     QVector<GLfloat> verts;
     QVector<GLfloat> colors;
+
+    //line coloring
+    LineColorMode lineStyle;
+    bool sharedMinMax;
+
+    QRect highlightRect;
+    float highlightLifetime;
+
+    vector<int> * hardwareTopoSamples;
 };
 
 #endif // PARALLELCOORDINATESVIZ_H

@@ -41,6 +41,7 @@
 #include <iostream>
 #include <cmath>
 
+
 using namespace std;
 
 HWTopoVizWidget::HWTopoVizWidget(QWidget *parent) :
@@ -48,9 +49,13 @@ HWTopoVizWidget::HWTopoVizWidget(QWidget *parent) :
 {
     dataMode = COLORBY_CYCLES;
     vizMode = SUNBURST;
-
+    colorBlue = true;
     colorMap = gradientColorMap(QColor(255,237,160),
                                 QColor(240,59 ,32 ),
+                                256);
+
+    connectionColor = gradientColorMap(QColor(255,0,0),
+                                QColor(0,0 ,0 ),
                                 256);
 
     this->installEventFilter(this);
@@ -60,7 +65,10 @@ HWTopoVizWidget::HWTopoVizWidget(QWidget *parent) :
 void HWTopoVizWidget::frameUpdate()
 {
     QRectF drawBox = this->rect();
-    drawBox.adjust(margin,margin,-margin,-margin);
+    float diagonal = sqrt(drawBox.width() * drawBox.width() + drawBox.height() * drawBox.height());
+    
+    float scaledMargin = margin * diagonal / 800;
+    drawBox.adjust(scaledMargin,scaledMargin,-scaledMargin,-scaledMargin);
 
     if(needsCalcMinMaxes)
     {
@@ -115,7 +123,6 @@ void HWTopoVizWidget::selectionChangedSlot()
 {
     if(!processed)
         return;
-
     needsCalcMinMaxes = true;
 }
 
@@ -123,12 +130,13 @@ void HWTopoVizWidget::visibilityChangedSlot()
 {
     if(!processed)
         return;
-
     needsCalcMinMaxes = true;
 }
 
 void HWTopoVizWidget::drawTopo(QPainter *painter, QRectF rect, ColorMap &cm, QVector<NodeBox> &nb, QVector<LinkBox> &lb)
 {
+    painter->fillRect(this->rect(), Qt::white);
+
     // Draw node outlines
     painter->setPen(QPen(Qt::black));
     for(int b=0; b<nb.size(); b++)
@@ -137,8 +145,30 @@ void HWTopoVizWidget::drawTopo(QPainter *painter, QRectF rect, ColorMap &cm, QVe
         QRectF box = nb.at(b).box;
         QString text = QString::number(c->GetId());
 
+        int numCycles = 0;
+        int numSamples = 0;
+
+        ElemSet samples;
+        int direction;
+        if(c->GetComponentType() == SYS_SAGE_COMPONENT_THREAD)
+        {
+            direction = SYS_SAGE_DATAPATH_INCOMING;
+        }else {
+            direction = SYS_SAGE_DATAPATH_OUTGOING;
+        }
+        vector<DataPath*> dp_vec;
+        c->GetAllDpByType(&dp_vec, SYS_SAGE_MITOS_SAMPLE, direction);
+        for(DataPath* dp : dp_vec) {
+            SampleSet *ss = (SampleSet*)dp->attrib["sample_set"];
+            numSamples += ss->selSamples.size();
+            numCycles += ss->selCycles;
+        }
+
+
+
         // Color by value
         QColor col = valToColor(nb.at(b).val,cm);
+        if(numSamples == 0 && colorBlue)col = col.blue();
         painter->setBrush(col);
 
         // Draw rect (radial or regular)
@@ -162,6 +192,10 @@ void HWTopoVizWidget::drawTopo(QPainter *painter, QRectF rect, ColorMap &cm, QVe
     {
         QRectF box = lb[b].box;
 
+        //QColor col = valToColor(nb.at(b).val,connectionColor);
+        //painter->setBrush(col);
+        
+        
         if(vizMode == SUNBURST)
         {
             QVector<QPointF> segmentPoly = rectToRadialSegment(box,rect);
@@ -180,8 +214,10 @@ void HWTopoVizWidget::drawQtPainter(QPainter *painter)
         return;
 
     QRectF drawBox = this->rect();
-    drawBox.adjust(margin,margin,-margin,-margin);
-
+    float diagonal = sqrt(drawBox.width() * drawBox.width() + drawBox.height() * drawBox.height());
+    
+    float scaledMargin = margin * diagonal / 800;
+    drawBox.adjust(scaledMargin,scaledMargin,-scaledMargin,-scaledMargin);
     drawTopo(painter,drawBox,colorMap,nodeBoxes,linkBoxes);
 
 }
@@ -234,7 +270,10 @@ void HWTopoVizWidget::mouseMoveEvent(QMouseEvent* e)
             direction = SYS_SAGE_DATAPATH_OUTGOING;
         }
         vector<DataPath*> dp_vec;
+        
         c->GetAllDpByType(&dp_vec, SYS_SAGE_MITOS_SAMPLE, direction);
+
+        label += "dp_vec size: " + QString::number(dp_vec.size()) + " number datapaths: " + QString::number(c->GetDataPaths(direction)->size()) + "\n";
         for(DataPath* dp : dp_vec) {
             SampleSet *ss = (SampleSet*)dp->attrib["sample_set"];
             numSamples += ss->selSamples.size();
@@ -248,10 +287,14 @@ void HWTopoVizWidget::mouseMoveEvent(QMouseEvent* e)
         label += "Cycles/Access: " + QString::number((float)numCycles / (float)numSamples) + "\n";
 
         QToolTip::showText(e->globalPos(),label,this, rect() );
+
+        emit hoverHardwareTopoSamples(&(nodeBoxAtPosition(e->pos())->sampleIndices));
+
     }
     else
     {
         QToolTip::hideText();
+        emit hoverHardwareTopoSamples(nullptr);
     }
 }
 
@@ -357,6 +400,7 @@ void HWTopoVizWidget::constructNodeBoxes(QRectF rect,
         vector<Component*> componentsAtDepth;
         node->GetComponentsNLevelsDeeper(&componentsAtDepth, i);
         deltaX = rect.width() / (float)componentsAtDepth.size();
+        
         for(int j=0; j<componentsAtDepth.size(); j++)
         {
             // Create Node Box
@@ -385,7 +429,16 @@ void HWTopoVizWidget::constructNodeBoxes(QRectF rect,
                 SampleSet *ss = (SampleSet*)dp->attrib["sample_set"];
                 numSamples += ss->selSamples.size();
                 numCycles += ss->selCycles;
+
+                for(ElemIndex s : ss->totSamples){
+                    auto cIndex = std::find(nb.sampleIndices.begin(), nb.sampleIndices.end(), s);
+                    if(cIndex == nb.sampleIndices.end())nb.sampleIndices.push_back(s);
+                }
             }
+
+            std::sort(nb.sampleIndices.begin(), nb.sampleIndices.end());
+
+            //std::cerr << "generated node box with " << nb.sampleIndices.size() << " samples\n";
 
             qreal unscaledval = (m == COLORBY_CYCLES) ? numCycles : numSamples;
             nb.val = scale(unscaledval,
@@ -395,9 +448,18 @@ void HWTopoVizWidget::constructNodeBoxes(QRectF rect,
 
             if(i==0)
                 nb.box.adjust(0,0,0,-nodeMarginY);
-            else
-                nb.box.adjust(nodeMarginX,nodeMarginY,-nodeMarginX,-nodeMarginY);
+            else{
+                float xOffset = nodeMarginX;
+                if(deltaX - 2.f * xOffset < 10.f)xOffset = (deltaX - 10) / 2.;
+                if(xOffset < .5f) xOffset = .5f;
+                //if(vizMode == SUNBURST)xOffset = xOffset * ((i - 1));
 
+                float yOffset = nodeMarginY;
+                if(deltaY - 2.f * yOffset < 10.f)yOffset = (deltaY - 10) / 2.;
+                if(yOffset < 1.f) yOffset = 1.f;
+                
+                nb.box.adjust(xOffset,yOffset,-xOffset, 0.);
+            }
             nbout.push_back(nb);
 
             // Create Link Box
@@ -407,19 +469,26 @@ void HWTopoVizWidget::constructNodeBoxes(QRectF rect,
                 lb.parent = nb.component->GetParent();
                 lb.child = nb.component;
 
-                // scale width by transactions
+                
                 lb.box.setRect(rect.left()+j*deltaX,
                                rect.top()+i*deltaY,
                                deltaX,
                                nodeMarginY);
 
-                lb.box.adjust(nodeMarginX,-nodeMarginY,-nodeMarginX,0);
+                lb.box.adjust(nodeMarginX,0.,-nodeMarginX,0);
 
+                // scale width by transactions
                 float linkWidth = scale(*(int*)(nb.component->attrib["transactions"]),
                                         transRanges.at(i).first,
                                         transRanges.at(i).second,
                                         1.0f,
                                         lb.box.width());
+
+                lb.val = scale(*(int*)(nb.component->attrib["transactions"]),
+                                        transRanges.at(i).first,
+                                        transRanges.at(i).second,
+                                        0.0f,
+                                        1.0f);
                 float deltaWidth = (lb.box.width()-linkWidth)/2.0f;
 
                 lb.box.adjust(deltaWidth,0,-deltaWidth,0);
@@ -460,8 +529,39 @@ Component *HWTopoVizWidget::nodeAtPosition(QPoint p)
     return NULL;
 }
 
+NodeBox *HWTopoVizWidget::nodeBoxAtPosition(QPoint p){
+    QRectF drawBox = this->rect();
+    drawBox.adjust(margin,margin,-margin,-margin);
+
+    for(int b=0; b<nodeBoxes.size(); b++)
+    {
+        QRectF box = nodeBoxes[b].box;
+
+        bool containsP = false;
+        if(vizMode == SUNBURST)
+        {
+            QPointF radp = reverseRadialTransform(p,drawBox);
+            containsP = box.contains(radp);
+        }
+        else if(vizMode == ICICLE)
+        {
+            containsP = box.contains(p);
+        }
+
+        if(containsP)
+            return &nodeBoxes[b];
+    }
+
+    return NULL;
+}
+
 void HWTopoVizWidget::selectSamplesWithinNode(Component *c)
 {
     dataSet->selectByResource(c);
     emit selectionChangedSig();
+}
+
+void HWTopoVizWidget::blueSwitch(){
+    colorBlue = !colorBlue;
+    needsRepaint = true;
 }

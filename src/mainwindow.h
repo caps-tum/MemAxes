@@ -45,15 +45,17 @@
 
 #include <QVector>
 
-#include "vizwidget.h"
-#include "codevizwidget.h"
+
 #include "varvizwidget.h"
 #include "pcvizwidget.h"
 #include "hwtopovizwidget.h"
+#include "action.h"
+#include "codevizwidget.h"
 
 #include "hwtopo.h"
 #include "codeeditor.h"
 #include "console.h"
+#include "vizwidget.h"
 
 //#include "volumevizwidget.h"
 
@@ -78,17 +80,25 @@ public slots:
     void selectionChangedSlot();
     void visibilityChangedSlot();
     int loadData();
+    int loadDataIBS();
     int selectDataDirectory();
+    int selectDirectory(QString *dest, QString directory_name);
+    void setHistogramsComboBoxes();
+    int selectInt(int *dest, QString wName, QString prompt, int rangeLow, int rangeHigh);
     void showSelectedOnly();
+    void removeAxis();
+    void correlateAxes();
     void showAll();
     void hideSelected();
     void selectAllVisible();
     void selectAll();
     void deselectAll();
+    void addAxis();
     void setSelectModeAND(bool on);
     void setSelectModeOR(bool on);
     void setSelectModeXOR(bool on);
     void setCodeLabel(QFile *file);
+    void testSlot(int i);
 
 private:
     Ui::MainWindow *ui;
@@ -101,9 +111,13 @@ private:
     VarViz *varViz;
 
     QVector<VizWidget*> vizWidgets;
+    PCVizWidget *pcViz;
+    ActionManager* actionManager;
     //VolumeVizWidget *volumeVizWidget;
 
     QString dataDir;
+    QString fetchDataDir;
+    QString opDataDir;
     DataObject *dataSet;
     console *con;
 };

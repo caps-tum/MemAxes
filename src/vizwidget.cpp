@@ -89,9 +89,11 @@ void VizWidget::visibilityChangedSlot()
 
 void VizWidget::initializeGL()
 {
+    glClearColor(1,1,1,1);
     glEnable(GL_MULTISAMPLE);
     glDisable(GL_DEPTH);
 }
+
 
 void VizWidget::paintEvent(QPaintEvent *event)
 {
@@ -102,6 +104,9 @@ void VizWidget::paintEvent(QPaintEvent *event)
 
     frameTimer.start();
 
+    
+
+    
     // Clear
     makeCurrent();
     qglClearColor(bgColor);
@@ -116,11 +121,13 @@ void VizWidget::paintEvent(QPaintEvent *event)
 
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
+    //painter.fillRect(this->rect(), bgColor);
+
     drawQtPainter(&painter);
     painter.end();
 
     // show fps
-    if(0)
+    if(false)
     {
         frameElapsed = frameTimer.nsecsElapsed();
         double seconds = (double)frameElapsed * 1e-9;

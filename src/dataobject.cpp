@@ -38,6 +38,8 @@
 
 #include "dataobject.h"
 #include "parseUtil.h"
+#include "chrono"
+#include "fstream"
 #include "musa-parser.h"
 
 
@@ -47,6 +49,8 @@
 
 #include <QFile>
 #include <QTextStream>
+
+using namespace chrono;
 
 DataObject::DataObject()
 {
@@ -59,6 +63,7 @@ DataObject::DataObject()
 
     selMode = MODE_NEW;
     selGroup = 1;
+
 }
 
 int DataObject::loadHardwareTopology(QString directory)
@@ -97,6 +102,26 @@ int DataObject::loadHardwareTopology(QString directory)
         allComponents[i]->attrib["transactions"] = (void*) new int();
     }
     qDebug() << QString("loadHardwareTopology completed");
+    return err;
+}
+
+int DataObject::loadHardwareTopologyIBS(QString filename)
+{
+    node = new Node(0);
+    int err = parseHwlocOutput(node, filename.toUtf8().constData()); //adds topo to a next node
+
+    //TODO temporary CPU
+    //cpu = (Chip*)(node->GetChild(1));
+
+    //create empty metadata items "sampleSets" and "transactions" for each Compoenent
+    vector<Component*> allComponents;
+    node->GetSubtreeNodeList(&allComponents);
+
+    for(int i=0; i<allComponents.size(); i++)
+    {
+        // allComponents[i]->attrib["sampleSets"] = (void*) new QMap<DataObject*,SampleSet>();
+        allComponents[i]->attrib["transactions"] = (void*) new int();
+    }
     return err;
 }
 
@@ -263,6 +288,7 @@ void DataObject::selectByLineRange(qreal vmin, qreal vmax, int group)
         if(sample.line >= vmin && sample.line < vmax)
             selSet.insert(sample.sampleId);
     }
+    std::cerr << "selected by line range: " << selSet.size()<< " vmin: " << vmin << " vmax: " << vmax << std::endl;
     selectSet(selSet,group);
 }
 
@@ -310,54 +336,25 @@ void DataObject::selectByLineRange(qreal vmin, qreal vmax, int group)
 
 void DataObject::selectByMultiDimRange(QVector<int> dims, QVector<qreal> mins, QVector<qreal> maxes, int group)
 {
-    //TODO !!!
-    //TODO !!!
-    //TODO !!!
-    //TODO !!!
-    //TODO !!!
+    ElemSet selSet;
 
-    // ElemSet selSet;
-    // for(int d=0; d<dims.size(); d++)
-    // {
-    //     int dim = dims[d];
-    //     std::vector<indexedValue>::iterator itMin;
-    //     std::vector<indexedValue>::iterator itMax;
-    //
-    //     struct indexedValue ivMinQuery;
-    //     ivMinQuery.val = mins[d];
-    //
-    //     struct indexedValue ivMaxQuery;
-    //     ivMaxQuery.val = maxes[d];
-    //
-    //     if(ivMinQuery.val <= this->minimumValues[dim])
-    //     {
-    //         itMin = dimSortedLists.at(dim).begin();
-    //     }
-    //     else
-    //     {
-    //         itMin = std::find_if(dimSortedLists.at(dim).begin(),
-    //                              dimSortedLists.at(dim).end(),
-    //                              indexedValueLtFunctor(ivMinQuery));
-    //     }
-    //
-    //     if(ivMaxQuery.val >= this->maximumValues[dim])
-    //     {
-    //         itMax = dimSortedLists.at(dim).end();
-    //     }
-    //     else
-    //     {
-    //         itMax = std::find_if(dimSortedLists.at(dim).begin(),
-    //                              dimSortedLists.at(dim).end(),
-    //                              indexedValueLtFunctor(ivMaxQuery));
-    //     }
-    //
-    //     for(/*itMin*/; itMin != itMax; itMin++)
-    //     {
-    //         selSet.insert(itMin->idx);
-    //     }
-    // }
-    //
-    // selectSet(selSet,group);
+    std::cerr << "selecting data: \n";
+    for(int i = 0; i < dims.size(); i++){
+        std::cerr <<"axis: " << dims[i] << " starting at: " << mins[i] << " up to: " << maxes[i] << std::endl;
+    }
+
+    for(int s = 0; s < numSamples; s++){
+        bool partOf = true;
+        for(int i = 0; i < dims.size(); i++){
+            if(GetSampleAttribByIndex(s, dims[i]) > maxes[i] || GetSampleAttribByIndex(s, dims[i]) < mins[i]){
+                partOf = false;
+                break;
+            }
+        }
+        if(partOf)selSet.insert(s);
+    }
+    std::cerr << selSet.size() << " elements of select set\n";
+    selectSet(selSet);
 }
 
 void DataObject::selectByVarName(QString str, int group)
@@ -644,11 +641,26 @@ int DataObject::DecodeDataSource(QString data_src_str)
     return -1;
 }
 
+void DataObject::setIBSBaseLatency(int baseLatency){
+    ibsBaseLatency = baseLatency;
+}
+
+QString DataObject::titleOfColumn(int index){
+    return header.at(index);
+}
+
+int DataObject::numberOfColumns(){
+    return header.size();
+}
+
 
 int DataObject::parseCSVFile(QString dataFileName)
 {
+
     // Open the file
     QFile dataFile(dataFileName);
+
+    
 
     if (!dataFile.open(QIODevice::ReadOnly | QIODevice::Text))
         return -1;
@@ -656,7 +668,6 @@ int DataObject::parseCSVFile(QString dataFileName)
     // Create text stream
     QTextStream dataStream(&dataFile);
     QString line;
-    QStringList lineValues;
     qint64 elemid = 0;
 
     // Get metadata from first line
@@ -676,18 +687,68 @@ int DataObject::parseCSVFile(QString dataFileName)
     // yDim = this->meta.indexOf("yidx");
     // zDim = this->meta.indexOf("zidx");
 
+    //adapted from https://stackoverflow.com/questions/3482064/counting-the-number-of-lines-in-a-text-file
+    numSamples = 0;
+    std::string stringline = "";
+    std::ifstream lengthReader(dataFileName.toStdString());
+
+    while (std::getline(lengthReader, stringline))
+        if(stringline != "")++numSamples;
+    //subtract header line
+    numSamples--;
+
+
+
     QVector<QString> varVec;
     QVector<QString> sourceVec;
-    QVector<QString> instrVec;
-    QStringList header = line.split(',');
+    header = line.split(',');
+
+    //allocate sample matrix
+    sampleMatrix = (long long *)malloc(sizeof(long long) * header.length() * numSamples);
+    
+    //Get attribute names
+    for(int i = 0; i < header.length(); i++){
+        attributeNames.push_back(header[i].toStdString());
+    }
+
+    for(int i = 0; i < SampleAxes::SampleAxesNames.length() && i < attributeNames.size(); i++){
+        attributeNames[i] = SampleAxes::SampleAxesNames[i].toStdString();
+    }
+
+    QVector<QStringList> lines;
+
     ElemIndex numHeaderDimensions = header.size();
+    numAttributes = header.size();
+
+    int builtinColumns[SampleAxes::BuiltinLoads.size()];
+    for(int i = 0; i < SampleAxes::BuiltinLoads.size(); i++){
+        builtinColumns[i] = header.indexOf(SampleAxes::BuiltinLoads[i]);
+        QString last = SampleAxes::BuiltinLoads[i];
+        while(builtinColumns[i] < 0 || builtinColumns[i] >= header.length()){
+            bool ok = true;
+            QString input = QInputDialog::getText(QApplication::activeWindow(), "Column unavailable", "no axis with name " + last + " specify alternative axis index or name", QLineEdit::Normal, "type here", &ok);
+            if(!ok)builtinColumns[i] = header.size() - 1;
+            else {
+                builtinColumns[i] = input.toInt(&ok);
+                if(!ok)builtinColumns[i] = header.indexOf(input);
+            }
+        }
+    }
+
+    milliseconds msStart = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
 
     // Get data
     while(!dataStream.atEnd())
     {
         line = dataStream.readLine();
-        lineValues = line.split(',');
+        lines.push_back(line.split(','));
+    }
 
+    // Close and return
+    dataFile.close();
+
+    //parse data
+    for(QStringList lineValues : lines){
         if(lineValues.size() != numHeaderDimensions)
         {
             std::cerr << "ERROR: element dimensions do not match headerdata!" << std::endl;
@@ -697,39 +758,88 @@ int DataObject::parseCSVFile(QString dataFileName)
 
         Sample s;
         s.sampleId = elemid;
-        s.sourceUid = createUniqueID(sourceVec,lineValues[header.indexOf("source")]);
-        s.source = lineValues[header.indexOf("source")];
-        s.line = lineValues[header.indexOf("line")].toLongLong();
-        s.instructionUid = createUniqueID(instrVec,lineValues[header.indexOf("instruction")]);
-        s.instruction = lineValues[header.indexOf("instruction")];
-        s.bytes = lineValues[header.indexOf("bytes")].toLongLong();
-        s.ip = lineValues[header.indexOf("ip")].toLongLong();
-        s.variableUid = createUniqueID(varVec,lineValues[header.indexOf("variable")]);
-        s.variable = lineValues[header.indexOf("variable")];
-        s.buffer_size = lineValues[header.indexOf("buffer_size")].toLongLong();
-        s.dims = lineValues[header.indexOf("dims")].toInt();
-        s.xidx = lineValues[header.indexOf("xidx")].toInt();
-        s.yidx = lineValues[header.indexOf("yidx")].toInt();
-        s.zidx = lineValues[header.indexOf("zidx")].toInt();
-        s.pid = lineValues[header.indexOf("pid")].toInt();
-        s.tid = lineValues[header.indexOf("tid")].toInt();
-        s.time = lineValues[header.indexOf("time")].toLongLong();
-        s.addr = lineValues[header.indexOf("addr")].toLongLong();
-        s.cpu = lineValues[header.indexOf("cpu")].toInt();
-        s.latency = lineValues[header.indexOf("latency")].toLongLong();
+        s.sourceUid = createUniqueID(sourceVec,lineValues[builtinColumns[0]]); 
+        s.source = lineValues[builtinColumns[0]]; // source file absolute path
+        s.line = lineValues[builtinColumns[1]].toLongLong(); // line in source file
+        s.instructionUid = createUniqueID(instrVec,lineValues[builtinColumns[2]]);
+        s.instruction = lineValues[builtinColumns[2]]; //instruction type
+        s.bytes = lineValues[builtinColumns[3]].toLongLong();
+        s.ip = lineValues[builtinColumns[4]].toLongLong(); // instruction pointer
+        s.variableUid = createUniqueID(varVec,lineValues[builtinColumns[5]]);
+        s.variable = lineValues[builtinColumns[5]];
+        s.buffer_size = lineValues[builtinColumns[6]].toLongLong();
+        s.dims = lineValues[builtinColumns[7]].toInt();
+        s.xidx = lineValues[builtinColumns[8]].toInt();
+        s.yidx = lineValues[builtinColumns[9]].toInt();
+        s.zidx = lineValues[builtinColumns[10]].toInt();
+        s.pid = lineValues[builtinColumns[11]].toInt();
+        s.tid = lineValues[builtinColumns[12]].toInt();
+        s.time = lineValues[builtinColumns[13]].toLongLong();
+        s.addr = lineValues[builtinColumns[14]].toLongLong();
+        s.cpu = lineValues[builtinColumns[15]].toInt();
+        s.latency = lineValues[builtinColumns[16]].toLongLong();
         //s.data_src = dseDepth(lineValues[header.indexOf("data_src")].toInt(NULL,10));
-        s.data_src = DecodeDataSource(lineValues[header.indexOf("level")]);
+        
+        s.data_src = DecodeDataSource(lineValues[builtinColumns[17]]);
+        
+        //IBS data src        
+        if(s.data_src == -1 && header.indexOf("ibs_dc_miss") >= 0 && header.indexOf("ibs_l2_miss") >= 0){
+            if(!lineValues[header.indexOf("ibs_dc_miss")].toInt() == 1){
+                s.data_src = 1; // L1 hit
+            }else if(!lineValues[header.indexOf("ibs_l2_miss")].toInt() == 1){
+                s.data_src = 2; // L2 hit
+            }else s.data_src = 4; // something else happened
+        }
+        
+        if(header.indexOf("ibs_op_phy") >= 0){
+            s.addr = std::stoll(lineValues[header.indexOf("ibs_op_phy")].toStdString(), nullptr, 16);
+            //std::cerr << s.addr << std::endl;
+        }
+
+        if(header.indexOf("ibs_dc_miss_lat") >= 0){
+            s.latency = lineValues[header.indexOf("ibs_dc_miss_lat")].toLongLong() + ibsBaseLatency;
+        }
+
+        //write MemAxes standard info to matrix
+        for(int i = 0; i < 19 && i < header.length(); i++){
+            sampleMatrix[i * numSamples + elemid] = GetSampleAttribByIndex(&s, i);
+        }
+
+        //ibs and additional info to matrix
+        for(int i = 19; i < header.length(); i++){
+            long long r = 0;
+            bool ok = true;
+            if(lineValues[i] != "(null)"){
+                r = lineValues[i].toLongLong(&ok);
+
+                if(!ok){
+                    r = lineValues[i].toLongLong(&ok, 16);
+                }
+
+                if(!ok)r = 0;
+            }
+            sampleMatrix[i*numSamples + elemid] = r;
+        }
+
+
+        
+        
+
         s.visible = VISIBLE;
         samples.push_back(s);
 
         //add samples as DataPath pointers
         Component * compTarget = node->FindSubcomponentById(s.cpu, SYS_SAGE_COMPONENT_THREAD);
-        Component * compSrc = compTarget;//connect with the right memory/cache
+        Component * compSrc = compTarget;
+        //connect with the right memory/cache
         while(compSrc != NULL && s.data_src != -1){
             compSrc = compSrc->GetParent();
             if(s.data_src == 1
                 && compSrc->GetComponentType() == SYS_SAGE_COMPONENT_CACHE
-                && ((Cache*)compSrc)->GetCacheLevel()==1) break;//L1
+                && ((Cache*)compSrc)->GetCacheLevel()==1) {
+                        //qDebug("creating L1 cache datapath");
+                        break;//L1
+                    }
             else if(s.data_src == 2
                 && compSrc->GetComponentType() == SYS_SAGE_COMPONENT_CACHE
                 && ((Cache*)compSrc)->GetCacheLevel()==2) break;//L2
@@ -813,10 +923,11 @@ int DataObject::parseCSVFile(QString dataFileName)
 
     }
 
-    // Close and return
-    dataFile.close();
-
     this->allocate();
+
+    milliseconds msEnd = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
+    auto elapsedTotal = msEnd - msStart;
+    std::cerr << "parsing CSV file took " << elapsedTotal.count() << "\n";
 
     return 0;
 }
@@ -842,6 +953,9 @@ void DataObject::setSelectionMode(selection_mode mode, bool silent)
             break;
     }
     con->log(selcmd);
+
+
+    
 }
 
 long long DataObject::GetSampleAttribByIndex(Sample* s, int attrib_idx)
@@ -893,10 +1007,14 @@ long long DataObject::GetSampleAttribByIndex(Sample* s, int attrib_idx)
 long long DataObject::GetSampleAttribByIndex(int sampleId, int attrib_idx)
 {
 
-    if(sampleId >= samples.size())
+    if(sampleId >= numSamples || sampleId < 0 || attrib_idx < 0 || attrib_idx > numAttributes)
         return -999999999;
+    
+    /*
     Sample s = samples[sampleId];
     return GetSampleAttribByIndex(&s,attrib_idx);
+    */
+    return sampleMatrix[attrib_idx * numSamples + sampleId];
 }
 
 void DataObject::calcStatistics()
@@ -1136,3 +1254,24 @@ qreal distanceHardware(DataObject *d, ElemSet *s1, ElemSet *s2)
 
     return dist;
 }
+
+int DataObject::getNumberOfSamples(){
+    return numSamples;
+}
+
+int DataObject::getNumberOfAttributes(){
+    return attributeNames.size();
+}
+
+string DataObject::GetAttributeName(int index){
+    return attributeNames[index];
+}
+
+long long * DataObject::GetSampleMatrix(){
+    return sampleMatrix;
+}
+
+QString DataObject::getInstruction(int instructionUID){
+    return instrVec[instructionUID];
+}
+

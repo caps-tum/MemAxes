@@ -13,6 +13,8 @@ find_package(OpenGL)
 find_package(sys-sage REQUIRED)
 include_directories(${sys-sage_INCLUDE_DIRS})
 link_libraries(${sys-sage_LIBRARIES})
+message(STATUS "sys-sage_LIBRARIES=${sys-sage_LIBRARIES}")
+message(STATUS "sys-sage_INCLUDE_DIRS=${sys-sage_INCLUDE_DIRS}")
 #libxml2 temporary
 find_package(LibXml2 REQUIRED) # Use pkg-config via the LibXml2 find-module
 execute_process(COMMAND xml2-config --cflags OUTPUT_VARIABLE LIBXML_F OUTPUT_STRIP_TRAILING_WHITESPACE)

@@ -69,6 +69,8 @@ public:
 signals:
     void sourceFileSelected(QFile *file);
     void sourceLineSelected(int line);
+    void sourceLineHover(int line);
+
 
 protected:
     void processData();
@@ -76,15 +78,24 @@ protected:
     //void visibilityChangedSlot();
     void drawQtPainter(QPainter *painter);
 
+    int sourceBlockMouseOver(QPoint mousePos);
+
     void mouseReleaseEvent(QMouseEvent *e);
+    
+    void leaveEvent(QEvent *event);
+    bool eventFilter(QObject *obj, QEvent *event);
 
 public slots:
     void setSourceDir(QString dir);
+    void selectFileByIndex(int index);
+    void toggleCodeJumping();
 
 private:
     int getFileID(QString name);
     int getLineID(sourceBlock *src, int line);
     void closeAll();
+
+    
 
 private:
     int margin;
@@ -97,6 +108,8 @@ private:
 
     qreal sourceMaxVal;
     QVector<sourceBlock> sourceBlocks;
+
+    bool codeJumping;
 };
 
 #endif // CODEVIZ_H

@@ -41,6 +41,8 @@
 
 #include <QWidget>
 #include <QBitArray>
+#include <QInputDialog>
+#include <QApplication>
 
 #include <map>
 #include <set>
@@ -139,6 +141,26 @@ namespace SampleAxes
         "load latency", //17
         "data source" //18
     };
+    const QStringList BuiltinLoads = {
+        "source",       //  0
+        "line",         //  1
+        "instruction",  //  2
+        "bytes",        //  3
+        "ip",           //  4
+        "variable",     //  5
+        "buffer_size",  //  6
+        "dims",         //  7
+        "xidx",         //  8
+        "yidx",         //  9
+        "zidx",         // 10
+        "pid",          // 11
+        "tid",          // 12
+        "time",         // 13
+        "addr",         // 14
+        "cpu",          // 15
+        "latency",      // 16
+        "level"         // 17
+    };
 }
 
 
@@ -178,16 +200,33 @@ public:
     int loadData(QString filename);
     int loadHardwareTopology(QString filename);
 
+    int loadHardwareTopologyIBS(QString filename);
+
+    void setIBSBaseLatency(int baseLatency);
+
     void selectionChanged() { collectTopoSamples(); }
     void visibilityChanged() { collectTopoSamples(); }
 
     void setConsole(console *c) { con = c; }
+
+    QString titleOfColumn(int index);
+
+    int numberOfColumns();
 
 private:
     void allocate();
     void collectTopoSamples();
     int parseCSVFile(QString dataFileName);
     int DecodeDataSource(QString data_src_str);
+    long long* sampleMatrix;
+    int numSamples;
+    int numAttributes;
+    vector<string> sourceFiles;
+    vector<string> attributeNames;
+
+
+
+    
 public:
     // Selection & Visibility
     selection_mode selectionMode() { return selMode; }
@@ -220,6 +259,11 @@ public:
 
     // Calculated statistics
     void calcStatistics();
+    int getNumberOfSamples();
+    int getNumberOfAttributes();
+    string GetAttributeName(int index);
+    long long *GetSampleMatrix();
+    QString getInstruction(int instructionUID);
     // void constructSortedLists();
 
     // qreal at(int i, int d) const { return vals[i*numDimensions+d]; }
@@ -279,6 +323,9 @@ private:
     QVector<qreal> sample_maxes;
     QVector<qreal> sample_means;
     QVector<qreal> sample_stdevs;
+    QVector<QString> instrVec;
+
+    QStringList header;
     // Sample sample_covarianceMatrix;
     // Sample sample_correlationMatrix;
 
@@ -291,6 +338,7 @@ private:
     // QVector<qreal> standardDeviations;
     // QVector<qreal> covarianceMatrix;
     // QVector<qreal> correlationMatrix;
+    int ibsBaseLatency;
 
 private:
     console *con;
