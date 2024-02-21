@@ -52,7 +52,6 @@
 #include "action.h"
 #include "codevizwidget.h"
 
-#include "hwtopo.h"
 #include "codeeditor.h"
 #include "console.h"
 #include "vizwidget.h"
