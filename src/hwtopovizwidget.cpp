@@ -227,8 +227,7 @@ void HWTopoVizWidget::mouseMoveEvent(QMouseEvent* e)
         // numCycles += (*sampleSets)[dataSet].selCycles;
 
         int direction;
-        if(c->GetComponentType() == SYS_SAGE_COMPONENT_THREAD)
-        {
+        if(c->GetComponentType() == SYS_SAGE_COMPONENT_THREAD){
             direction = SYS_SAGE_DATAPATH_INCOMING;
         }else {
             direction = SYS_SAGE_DATAPATH_OUTGOING;

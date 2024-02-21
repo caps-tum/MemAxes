@@ -17,7 +17,6 @@ set(SOURCES
   codevizwidget.cpp
   console.cpp
   dataobject.cpp
-  hwtopo.cpp
   main.cpp
   mainwindow.cpp
   musa-parser.cpp
@@ -33,7 +32,6 @@ set(HEADERS
   codevizwidget.h
   console.h
   dataobject.h
-  hwtopo.h
   mainwindow.h
   musa-parser.h
   hwtopovizwidget.h

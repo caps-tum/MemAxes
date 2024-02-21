@@ -51,7 +51,6 @@
 #include "pcvizwidget.h"
 #include "hwtopovizwidget.h"
 
-#include "hwtopo.h"
 #include "codeeditor.h"
 #include "console.h"
 

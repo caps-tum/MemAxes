@@ -48,8 +48,6 @@
 #include <assert.h>
 #include <chrono>
 
-
-#include "hwtopo.h"
 #include "util.h"
 #include "console.h"
 #include "sys-sage.hpp"
